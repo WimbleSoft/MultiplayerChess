@@ -3,6 +3,7 @@
 #include "Game/Interactables/MCChessTable.h"
 #include "Game/Interactables/MCKing.h"
 #include "Game/Interactables/MCTableSlot.h"
+#include "Game/MCChessRules.h"
 #include "Game/MCGame_PC.h"
 #include "Game/MCSlotInterface.h"
 #include "MultiplayerChess.h"
@@ -109,13 +110,6 @@ AMCChessTable* AMCChessObjectBase::GetChessTable() const
 	return Cast<AMCChessTable>(GetParentActor());
 }
 
-void AMCChessObjectBase::GetSlotColRow(FName InName, int32& Column, int32& Row) const
-{
-	const FString Name = InName.ToString();
-	Column = UMCCommonFunctions::GetColumnLetters().Find(Name.Mid(0, 1));
-	Row = FCString::Atoi(*Name.Mid(1, 1));
-}
-
 void AMCChessObjectBase::HoverGlow(bool Glow)
 {
 	if (Glow)
@@ -177,228 +171,23 @@ void AMCChessObjectBase::CalcHover(bool IsHovering)
 
 void AMCChessObjectBase::CalcPossibility()
 {
+	AMCChessTable* Table = GetChessTable();
+	int32 Col = 0, Row = 0;
+	if (!Table || !FMCChessRules::ParseSquare(SlotName, Col, Row))
+	{
+		return;
+	}
+	TArray<FMCMove> Moves;
+	Table->BuildRules().GenerateLegalMoves(Col, Row, Moves);
+	for (const FMCMove& Move : Moves)
+	{
+		Server_AddPossibleSlot(FMCChessRules::MakeSquareName(Move.ToCol, Move.ToRow));
+	}
 }
 
 void AMCChessObjectBase::GetCurrentSlot(AMCTableSlot*& Slot, bool& bIsValid) const
 {
 	GetSlotByName(SlotName, Slot, bIsValid);
-}
-
-void AMCChessObjectBase::AddCastlingPossibilities()
-{
-	TArray<FName> KingFrom, KingTo, RookFrom, RookTo;
-	bool IsCastlingPossible = false;
-	GetCastlingPossibilities(KingFrom, KingTo, IsCastlingPossible, RookFrom, RookTo);
-	if (IsCastlingPossible)
-	{
-		for (const FName& Element : KingTo)
-		{
-			Server_AddPossibleSlot(Element);
-		}
-	}
-}
-
-// The three "...ByParams" functions walk one direction and stop at the first occupied slot.
-// Own piece: stop without adding. Enemy piece: stop and add. Empty: add and continue.
-// AllInRange lists are only filled when this object is a King, exactly like the Blueprint.
-void AMCChessObjectBase::GetColPossbilitiesByParams(int32 ToCol, int32 MaxMovement, TArray<FName>& ColPossibilities, TArray<FName>& AllColSurroundings) const
-{
-	TArray<FName> ValidPossibilities;
-	TArray<FName> InRangePossibilities;
-	int32 Col = 0, Row = 0;
-	GetSlotColRow(SlotName, Col, Row);
-	AMCChessTable* Table = GetChessTable();
-
-	bool bBreak = false;
-	for (int32 Index = 1; Index <= MaxMovement && !bBreak; ++Index)
-	{
-		FName Name;
-		bool InRange = false;
-		GetSlotNameByColRow(Col + Index * ToCol, Row, Name, InRange);
-		if (!InRange)
-		{
-			continue;
-		}
-		if (ObjectType == E_ObjectType::King)
-		{
-			InRangePossibilities.AddUnique(Name);
-		}
-		AMCTableSlot* Slot = Table ? Table->GetTableSlotBySocketName(Name) : nullptr;
-		AMCChessObjectBase* Attached = Slot ? Slot->AttachedObject.Get() : nullptr;
-		bool IsEmpty = true, IsFull = false;
-		if (Slot)
-		{
-			Slot->GetIsEmpty(IsEmpty, IsFull);
-		}
-		if (IsValid(Attached) && IsFull)
-		{
-			bBreak = true;
-			if (!(!IsAway == Attached->IsAway))
-			{
-				continue;
-			}
-		}
-		ValidPossibilities.AddUnique(Name);
-	}
-
-	ColPossibilities = ValidPossibilities;
-	AllColSurroundings = InRangePossibilities;
-}
-
-void AMCChessObjectBase::GetDiagonalPossbilitiesByParams(int32 A, int32 B, int32 MaxMovement, TArray<FName>& Possibilities, TArray<FName>& AllInRangePossibilities) const
-{
-	TArray<FName> ValidPossibilities;
-	TArray<FName> InRangePossibilities;
-	int32 Col = 0, Row = 0;
-	GetSlotColRow(SlotName, Col, Row);
-	AMCChessTable* Table = GetChessTable();
-
-	bool bBreak = false;
-	for (int32 Index = 1; Index <= MaxMovement && !bBreak; ++Index)
-	{
-		FName Name;
-		bool InRange = false;
-		GetSlotNameByColRow(Col + A * Index, Row + Index * B, Name, InRange);
-		if (!InRange)
-		{
-			continue;
-		}
-		if (ObjectType == E_ObjectType::King)
-		{
-			InRangePossibilities.AddUnique(Name);
-		}
-		AMCTableSlot* Slot = Table ? Table->GetTableSlotBySocketName(Name) : nullptr;
-		AMCChessObjectBase* Attached = Slot ? Slot->AttachedObject.Get() : nullptr;
-		bool IsEmpty = true, IsFull = false;
-		if (Slot)
-		{
-			Slot->GetIsEmpty(IsEmpty, IsFull);
-		}
-		if (IsValid(Attached) && IsFull)
-		{
-			bBreak = true;
-			if (!(!IsAway == Attached->IsAway))
-			{
-				continue;
-			}
-		}
-		ValidPossibilities.AddUnique(Name);
-	}
-
-	Possibilities = ValidPossibilities;
-	AllInRangePossibilities = InRangePossibilities;
-}
-
-void AMCChessObjectBase::GetRowPossibilitiesByParams(int32 ToRow, int32 LastIndex, TArray<FName>& RowPossibilities, TArray<FName>& AllRowSurroundings) const
-{
-	TArray<FName> ValidPossilities;
-	TArray<FName> InRangePossilities;
-	int32 Col = 0, Row = 0;
-	GetSlotColRow(SlotName, Col, Row);
-	AMCChessTable* Table = GetChessTable();
-
-	bool bBreak = false;
-	for (int32 Index = 1; Index <= LastIndex && !bBreak; ++Index)
-	{
-		FName Name;
-		bool InRange = false;
-		GetSlotNameByColRow(Col, Row + Index * ToRow, Name, InRange);
-		if (!InRange)
-		{
-			continue;
-		}
-		if (ObjectType == E_ObjectType::King)
-		{
-			InRangePossilities.AddUnique(Name);
-		}
-		AMCTableSlot* Slot = Table ? Table->GetTableSlotBySocketName(Name) : nullptr;
-		AMCChessObjectBase* Attached = Slot ? Slot->AttachedObject.Get() : nullptr;
-		bool IsEmpty = true, IsFull = false;
-		if (Slot)
-		{
-			Slot->GetIsEmpty(IsEmpty, IsFull);
-		}
-		if (IsValid(Attached) && IsFull)
-		{
-			bBreak = true;
-			if (!(!IsAway == Attached->IsAway))
-			{
-				continue;
-			}
-		}
-		// Array_Add here (the Col/Diagonal versions use Array_AddUnique).
-		ValidPossilities.Add(Name);
-	}
-
-	RowPossibilities = ValidPossilities;
-	AllRowSurroundings = InRangePossilities;
-}
-
-void AMCChessObjectBase::GetDiagonalPossibilities(int32 MaxMovement, TArray<FName>& ValidDiagonalPossibilities, TArray<FName>& AllDiagonalPossibilities) const
-{
-	TArray<FName> ValidPossibilities;
-	TArray<FName> InvalidPossibilities;
-
-	const int32 Directions[4][2] = {
-		{ IsAway ? 1 : -1, IsAway ? -1 : 1 },
-		{ IsAway ? -1 : 1, IsAway ? 1 : -1 },
-		{ IsAway ? 1 : -1, IsAway ? 1 : -1 },
-		{ IsAway ? -1 : 1, IsAway ? -1 : 1 },
-	};
-
-	for (const auto& Direction : Directions)
-	{
-		TArray<FName> Possibilities, AllInRangePossibilities;
-		GetDiagonalPossbilitiesByParams(Direction[0], Direction[1], MaxMovement, Possibilities, AllInRangePossibilities);
-		for (const FName& Element : Possibilities)
-		{
-			if (ObjectType != E_ObjectType::King)
-			{
-				ValidPossibilities.AddUnique(Element);
-			}
-			else
-			{
-				AMCKing* OpponentKing = nullptr;
-				bool bKingValid = false;
-				GetOpponentKing(OpponentKing, bKingValid);
-				if (bKingValid && !OpponentKing->GetKingSurroundings().Contains(Element))
-				{
-					ValidPossibilities.AddUnique(Element);
-				}
-			}
-		}
-		for (const FName& Element : AllInRangePossibilities)
-		{
-			InvalidPossibilities.AddUnique(Element);
-		}
-	}
-
-	ValidDiagonalPossibilities = ValidPossibilities;
-	AllDiagonalPossibilities = InvalidPossibilities;
-}
-
-bool AMCChessObjectBase::CalcCheckingKing()
-{
-	return false;
-}
-
-bool AMCChessObjectBase::CanCheckToSlot(FName InSlotName)
-{
-	return false;
-}
-
-void AMCChessObjectBase::GetSlotNameByColRow(int32 Col, int32 Row, FName& SocketName, bool& InRange) const
-{
-	if (Col >= 1 && Col <= 8 && Row >= 1 && Row <= 8)
-	{
-		SocketName = FName(UMCCommonFunctions::GetColumnLetters()[Col] + FString::FromInt(Row));
-		InRange = true;
-	}
-	else
-	{
-		SocketName = NAME_None;
-		InRange = false;
-	}
 }
 
 bool AMCChessObjectBase::GetIsObjectBelongToPlayer(int32 PlayerIndex)
@@ -409,80 +198,6 @@ bool AMCChessObjectBase::GetIsObjectBelongToPlayer(int32 PlayerIndex)
 		return false;
 	}
 	return (PlayerIndex == 1) == IsAway;
-}
-
-void AMCChessObjectBase::AddDiagonalPossibilities(int32 MaxMovement)
-{
-	TArray<FName> ValidDiagonalPossibilities, AllDiagonalPossibilities;
-	GetDiagonalPossibilities(MaxMovement, ValidDiagonalPossibilities, AllDiagonalPossibilities);
-	for (const FName& Element : ValidDiagonalPossibilities)
-	{
-		Server_AddPossibleSlot(Element);
-	}
-}
-
-void AMCChessObjectBase::AddStraightPossibilities(int32 MaxMovement)
-{
-	TArray<FName> ValidStraightPossibilities, AllInRangeStraightPossibilities;
-	GetStraightPossibilities(MaxMovement, ValidStraightPossibilities, AllInRangeStraightPossibilities);
-	for (const FName& Element : ValidStraightPossibilities)
-	{
-		Server_AddPossibleSlot(Element);
-	}
-}
-
-void AMCChessObjectBase::GetCastlingPossibilities(TArray<FName>& KingFrom, TArray<FName>& KingTo, bool& IsCastlingPossible, TArray<FName>& RookFrom, TArray<FName>& RookTo) const
-{
-	TArray<FName> KingFromArray, KingToArray, RookFromArray, RookToArray;
-
-	// HOME SIDE CASTLING
-	if (SlotName == TEXT("E1") && !IsMoved && IsObjectOnSlotWithType(TEXT("H1"), TEXT("H1"), E_ObjectType::Rook) && (IsSlotEmpty(TEXT("F1")) && IsSlotEmpty(TEXT("G1"))))
-	{
-		KingFromArray.AddUnique(TEXT("E1"));
-		KingToArray.AddUnique(TEXT("G1"));
-		RookFromArray.AddUnique(TEXT("H1"));
-		RookToArray.AddUnique(TEXT("F1"));
-	}
-	if (SlotName == TEXT("E1") && !IsMoved && IsObjectOnSlotWithType(TEXT("A1"), TEXT("A1"), E_ObjectType::Rook) && (IsSlotEmpty(TEXT("D1")) && IsSlotEmpty(TEXT("C1")) && IsSlotEmpty(TEXT("B1"))))
-	{
-		KingFromArray.AddUnique(TEXT("E1"));
-		KingToArray.AddUnique(TEXT("B1"));
-		RookFromArray.AddUnique(TEXT("A1"));
-		RookToArray.AddUnique(TEXT("C1"));
-	}
-	// AWAY SIDE CASTLING
-	if (SlotName == TEXT("E8") && !IsMoved && IsObjectOnSlotWithType(TEXT("H8"), TEXT("H8"), E_ObjectType::Rook) && (IsSlotEmpty(TEXT("F8")) && IsSlotEmpty(TEXT("G8"))))
-	{
-		KingFromArray.AddUnique(TEXT("E8"));
-		KingToArray.AddUnique(TEXT("G8"));
-		RookFromArray.AddUnique(TEXT("H8"));
-		RookToArray.AddUnique(TEXT("F8"));
-	}
-	if (SlotName == TEXT("E8") && !IsMoved && IsObjectOnSlotWithType(TEXT("A8"), TEXT("A8"), E_ObjectType::Rook) && (IsSlotEmpty(TEXT("D8")) && IsSlotEmpty(TEXT("C8")) && IsSlotEmpty(TEXT("B8"))))
-	{
-		KingFromArray.AddUnique(TEXT("E8"));
-		KingToArray.AddUnique(TEXT("B8"));
-		RookFromArray.AddUnique(TEXT("A8"));
-		RookToArray.AddUnique(TEXT("C8"));
-	}
-
-	KingFrom = KingFromArray;
-	KingTo = KingToArray;
-	IsCastlingPossible = KingFromArray.Num() > 0;
-	RookFrom = RookFromArray;
-	RookTo = RookToArray;
-}
-
-bool AMCChessObjectBase::IsSlotEmpty(FName InSlotName) const
-{
-	AMCChessTable* Table = GetChessTable();
-	if (!Table)
-	{
-		MC_ACCESSED_NONE("GetChessTable");
-		return true;
-	}
-	const bool* Occupied = Table->GetAllSlotsOccupationInfo().Find(InSlotName);
-	return !(Occupied && *Occupied);
 }
 
 void AMCChessObjectBase::GetSlotByName(FName InSlotName, AMCTableSlot*& Slot, bool& bIsValid) const
@@ -497,112 +212,6 @@ void AMCChessObjectBase::GetSlotByName(FName InSlotName, AMCTableSlot*& Slot, bo
 	{
 		MC_ACCESSED_NONE("GetChessTable");
 	}
-}
-
-bool AMCChessObjectBase::IsObjectOnSlotWithType(FName CurrentSlot, FName SlotToCheck, E_ObjectType ObjectTypeToCheck) const
-{
-	AMCTableSlot* Slot = nullptr;
-	bool bSlotValid = false;
-	GetSlotByName(CurrentSlot, Slot, bSlotValid);
-	if (!bSlotValid)
-	{
-		return false;
-	}
-	AMCChessObjectBase* Attached = Slot->AttachedObject;
-	if (!IsValid(Attached))
-	{
-		return false;
-	}
-	if (IsAway != Attached->IsAway)
-	{
-		return false;
-	}
-	return !Attached->IsMoved && Attached->SlotName == SlotToCheck && Attached->ObjectType == ObjectTypeToCheck;
-}
-
-void AMCChessObjectBase::GetStraightPossibilities(int32 MaxMovement, TArray<FName>& ValidStraightPossibilities, TArray<FName>& AllInRangeStraightPossibilities) const
-{
-	TArray<FName> ValidPossibilities;
-	TArray<FName> InvalidPossibilities;
-
-	auto AddFiltered = [this, &ValidPossibilities](const TArray<FName>& Candidates)
-	{
-		for (const FName& Element : Candidates)
-		{
-			if (ObjectType == E_ObjectType::King)
-			{
-				AMCKing* OpponentKing = nullptr;
-				bool bKingValid = false;
-				GetOpponentKing(OpponentKing, bKingValid);
-				if (bKingValid && !OpponentKing->GetKingSurroundings().Contains(Element))
-				{
-					ValidPossibilities.AddUnique(Element);
-				}
-			}
-			else
-			{
-				ValidPossibilities.AddUnique(Element);
-			}
-		}
-	};
-	auto AddAll = [&InvalidPossibilities](const TArray<FName>& Candidates)
-	{
-		for (const FName& Element : Candidates)
-		{
-			InvalidPossibilities.AddUnique(Element);
-		}
-	};
-
-	TArray<FName> Possibilities, Surroundings;
-	GetRowPossibilitiesByParams(IsAway ? -1 : 1, MaxMovement, Possibilities, Surroundings);
-	AddFiltered(Possibilities);
-	AddAll(Surroundings);
-
-	GetColPossbilitiesByParams(IsAway ? -1 : 1, MaxMovement, Possibilities, Surroundings);
-	AddFiltered(Possibilities);
-	AddAll(Surroundings);
-
-	GetRowPossibilitiesByParams(IsAway ? 1 : -1, MaxMovement, Possibilities, Surroundings);
-	AddFiltered(Possibilities);
-	AddAll(Surroundings);
-
-	GetColPossbilitiesByParams(IsAway ? 1 : -1, MaxMovement, Possibilities, Surroundings);
-	AddFiltered(Possibilities);
-	AddAll(Surroundings);
-
-	ValidStraightPossibilities = ValidPossibilities;
-	AllInRangeStraightPossibilities = InvalidPossibilities;
-}
-
-void AMCChessObjectBase::GetKingPossibilities(TArray<FName>& Possibilities, TArray<FName>& NotValidPossibilities) const
-{
-	TArray<FName> TempPossibilities;
-	TArray<FName> InvalidPossibilities;
-
-	TArray<FName> ValidDiagonal, AllDiagonal;
-	GetDiagonalPossibilities(1, ValidDiagonal, AllDiagonal);
-	for (const FName& Element : ValidDiagonal)
-	{
-		TempPossibilities.AddUnique(Element);
-	}
-	for (const FName& Element : AllDiagonal)
-	{
-		InvalidPossibilities.AddUnique(Element);
-	}
-
-	TArray<FName> ValidStraight, AllStraight;
-	GetStraightPossibilities(1, ValidStraight, AllStraight);
-	for (const FName& Element : ValidStraight)
-	{
-		TempPossibilities.AddUnique(Element);
-	}
-	for (const FName& Element : AllStraight)
-	{
-		InvalidPossibilities.AddUnique(Element);
-	}
-
-	Possibilities = TempPossibilities;
-	NotValidPossibilities = InvalidPossibilities;
 }
 
 void AMCChessObjectBase::GetOpponentKing(AMCKing*& OpponentKing, bool& bIsValid) const
@@ -624,55 +233,6 @@ void AMCChessObjectBase::GetOpponentKing(AMCKing*& OpponentKing, bool& bIsValid)
 			return;
 		}
 	}
-}
-
-TArray<FName> AMCChessObjectBase::GetDiagonalSurroundings(int32 MaxMovement) const
-{
-	TArray<FName> Surroundings;
-	const int32 Directions[4][2] = {
-		{ IsAway ? 1 : -1, IsAway ? -1 : 1 },
-		{ IsAway ? -1 : 1, IsAway ? 1 : -1 },
-		{ IsAway ? 1 : -1, IsAway ? 1 : -1 },
-		{ IsAway ? -1 : 1, IsAway ? -1 : 1 },
-	};
-	for (const auto& Direction : Directions)
-	{
-		TArray<FName> Possibilities, AllInRangePossibilities;
-		GetDiagonalPossbilitiesByParams(Direction[0], Direction[1], MaxMovement, Possibilities, AllInRangePossibilities);
-		for (const FName& Element : AllInRangePossibilities)
-		{
-			Surroundings.AddUnique(Element);
-		}
-	}
-	return Surroundings;
-}
-
-TArray<FName> AMCChessObjectBase::GetStraightSurroundings(int32 MaxMovement) const
-{
-	TArray<FName> InvalidPossibilities;
-	TArray<FName> Possibilities, Surroundings;
-
-	GetRowPossibilitiesByParams(IsAway ? -1 : 1, MaxMovement, Possibilities, Surroundings);
-	for (const FName& Element : Surroundings)
-	{
-		InvalidPossibilities.AddUnique(Element);
-	}
-	GetColPossbilitiesByParams(IsAway ? -1 : 1, MaxMovement, Possibilities, Surroundings);
-	for (const FName& Element : Surroundings)
-	{
-		InvalidPossibilities.AddUnique(Element);
-	}
-	GetRowPossibilitiesByParams(IsAway ? 1 : -1, MaxMovement, Possibilities, Surroundings);
-	for (const FName& Element : Surroundings)
-	{
-		InvalidPossibilities.AddUnique(Element);
-	}
-	GetColPossbilitiesByParams(IsAway ? 1 : -1, MaxMovement, Possibilities, Surroundings);
-	for (const FName& Element : Surroundings)
-	{
-		InvalidPossibilities.AddUnique(Element);
-	}
-	return InvalidPossibilities;
 }
 
 // ---- EventGraph ----

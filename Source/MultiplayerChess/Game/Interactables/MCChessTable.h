@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Common/S_ObjectMap.h"
+#include "Game/MCChessRules.h"
 #include "MCChessTable.generated.h"
 
 class AMCChessObjectBase;
@@ -72,6 +73,13 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	TMap<FName, bool> GetAllSlotsOccupationInfo() const;
+
+	// Snapshot of the current position for the chess rules (server side).
+	FMCChessRules BuildRules() const;
+
+	// Square a pawn may capture onto en passant this turn ("" when none). Server side.
+	UPROPERTY(BlueprintReadOnly)
+	FName EnPassantSquare;
 
 private:
 	// Equivalent of the Blueprint "Add Child Actor Component" node.

@@ -3,6 +3,7 @@
 #include "Game/MCGame_PS.h"
 #include "MultiplayerChess.h"
 #include "GameFramework/PlayerState.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 void AMCGame_GS::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -10,6 +11,8 @@ void AMCGame_GS::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMCGame_GS, PlayerTurnIndex);
+	DOREPLIFETIME(AMCGame_GS, bGameOver);
+	DOREPLIFETIME(AMCGame_GS, WinnerIndex);
 }
 
 void AMCGame_GS::ProcessObjectBeatingPoints(AMCGame_PC* BeatingPlayer, int32 PointsToAdd, AMCGame_PC* BeatenPlayer)
@@ -57,4 +60,9 @@ TArray<FS_PlayerInfo> AMCGame_GS::GetPlayerInfos()
 void AMCGame_GS::SetNewTurnIndex()
 {
 	PlayerTurnIndex = (PlayerTurnIndex == 0) ? 1 : 0;
+}
+
+void AMCGame_GS::Multicast_ShowMessage_Implementation(const FString& Message, FLinearColor Color, float Duration)
+{
+	UKismetSystemLibrary::PrintString(this, Message, true, true, Color, Duration);
 }

@@ -1,9 +1,9 @@
 #include "Game/Interactables/MCKing.h"
+#include "Game/Interactables/MCTableSlot.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
-#include "UObject/ConstructorHelpers.h"
-#include "Game/Interactables/MCTableSlot.h"
 #include "Net/UnrealNetwork.h"
+#include "UObject/ConstructorHelpers.h"
 
 AMCKing::AMCKing()
 {
@@ -17,32 +17,6 @@ void AMCKing::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMCKing, IsKingChecked);
-}
-
-void AMCKing::CalcPossibility()
-{
-	Super::CalcPossibility();
-
-	if (!IsKingChecked)
-	{
-		AddCastlingPossibilities();
-	}
-	AddDiagonalPossibilities(1);
-	AddStraightPossibilities(1);
-}
-
-TArray<FName> AMCKing::GetKingSurroundings() const
-{
-	TArray<FName> TempSurroundings;
-	for (const FName& Element : GetDiagonalSurroundings(1))
-	{
-		TempSurroundings.AddUnique(Element);
-	}
-	for (const FName& Element : GetStraightSurroundings(1))
-	{
-		TempSurroundings.AddUnique(Element);
-	}
-	return TempSurroundings;
 }
 
 void AMCKing::MarkChecked(bool IsChecked)
@@ -62,17 +36,7 @@ void AMCKing::OnRep_IsKingChecked()
 	}
 }
 
-bool AMCKing::CanCheckToSlot(FName InSlotName)
-{
-	return GetKingSurroundings().Contains(InSlotName);
-}
-
 void AMCKing::S_MarkChecked_Implementation(bool IsChecked)
 {
-	IsKingChecked = IsChecked;
-	OnRep_IsKingChecked();
-}
-
-void AMCKing::M_MarkChecked(bool IsChecked)
-{
+	MarkChecked(IsChecked);
 }

@@ -11,7 +11,7 @@ class AMCGame_GS;
 class AMCGame_PC;
 class AMCTableSlot;
 
-// Port of BP_Game_GM.
+// Port of BP_Game_GM. Moves are validated and executed here with FMCChessRules.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCGame_GM : public AGameModeBase
 {
@@ -26,15 +26,34 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<AMCChessTable> R_Table;
 
-	// Piece classes used by ReplacePawnWithNewObject (the Blueprint picked BP_Bishop_C, BP_King_C, ... with a Select node).
+	// Piece classes used by ReplacePawnWithNewObject.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TMap<E_ObjectType, TSubclassOf<AMCChessObjectBase>> ObjectClasses;
+
+	// Player who still has to pick the piece for a promoted pawn, and the pawn's slot. The turn waits for it.
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<AMCGame_PC> PendingPromotionPlayer;
+
+	UPROPERTY(BlueprintReadOnly)
+	FName PendingPromotionSlot;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 	// Never called by the engine for a GameModeBase; kept as a plain function like in the Blueprint.
 	UFUNCTION(BlueprintCallable)
 	bool ReadyToStartMatch();
+
+	// True when it is this player's turn, the game is running and no promotion is waiting.
+	UFUNCTION(BlueprintCallable)
+	bool CanPlayerAct(AMCGame_PC* Player, FString& OutReason) const;
+
+	// Validates the move with the chess rules and performs it (captures, castling, en passant, promotion).
+	UFUNCTION(BlueprintCallable)
+	bool TryMovePiece(AMCGame_PC* Player, AMCChessObjectBase* Piece, FName TargetSlot);
+
+	// Replaces the waiting pawn with the chosen piece and passes the turn.
+	UFUNCTION(BlueprintCallable)
+	void CompletePromotion(AMCGame_PC* Player, FName Slot, E_ObjectType NewObjectType);
 
 	UFUNCTION(BlueprintCallable)
 	void MoveObjectToEmptySlot(AMCTableSlot* NewSlot, AMCChessObjectBase* SelectedObject);
@@ -48,14 +67,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	AMCGame_PC* GetOpponentPlayer(AMCGame_PC* ItemToFind);
 
-	UFUNCTION(BlueprintCallable)
-	void ObjectClicked(AMCGame_PC* Player, AMCChessObjectBase* ObjectToBeat);
-
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	AMCGame_GS* GetGS() const;
-
-	UFUNCTION(BlueprintCallable)
-	void SlotClicked(AMCGame_PC* Player, AMCTableSlot* NewSlot, AMCChessObjectBase* SelectedObject);
 
 	// "PIE ONLY" custom event; nothing calls it.
 	UFUNCTION(BlueprintCallable)
@@ -68,12 +81,19 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ReplacePawnWithNewObject(FName Slot, AMCChessObjectBase* PawnObject, E_ObjectType NewObjectType, bool IsAway);
 
+	// Marks each king as checked or not for the current position.
 	UFUNCTION(BlueprintCallable)
-	void ProcessCheckingPossibility(AMCChessObjectBase* AttackerObject);
+	void UpdateCheckState();
 
 protected:
 	// Event K2_PostLogin
 	virtual void OnPostLogin(AController* NewPlayer) override;
 	// Event K2_OnSwapPlayerControllers
 	virtual void SwapPlayerControllers(APlayerController* OldPC, APlayerController* NewPC) override;
+
+	AMCChessTable* GetTable() const;
+
+	// Passes the turn, updates check marks and ends the game on checkmate or stalemate.
+	void FinishTurn();
+	void EndGame(int32 WinnerIndex, const FString& Message);
 };

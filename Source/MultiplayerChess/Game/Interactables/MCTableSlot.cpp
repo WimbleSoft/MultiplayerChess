@@ -246,4 +246,6 @@ void AMCTableSlot::Server_SetAttachedObject_Implementation(AMCChessObjectBase* N
 void AMCTableSlot::Multi_SetAttachedObject_Implementation(AMCChessObjectBase* NewObject)
 {
 	AttachedObject = NewObject;
+	// Refresh the colour, so a slot a checked king leaves stops showing CheckedColor.
+	Glow();
 }

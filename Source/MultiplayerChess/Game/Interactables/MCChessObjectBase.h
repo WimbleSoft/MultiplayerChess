@@ -79,9 +79,6 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	AMCChessTable* GetChessTable() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	void GetSlotColRow(FName InName, int32& Column, int32& Row) const;
-
 	UFUNCTION(BlueprintCallable)
 	void HoverGlow(bool Glow);
 
@@ -97,6 +94,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void CalcHover(bool IsHovering);
 
+	// Adds the legal moves of this piece (from the chess rules) to PossibleSlots. Server only.
 	UFUNCTION(BlueprintCallable)
 	virtual void CalcPossibility();
 
@@ -104,64 +102,13 @@ public:
 	void GetCurrentSlot(AMCTableSlot*& Slot, bool& bIsValid) const;
 
 	UFUNCTION(BlueprintCallable)
-	void AddCastlingPossibilities();
-
-	UFUNCTION(BlueprintCallable)
-	void GetColPossbilitiesByParams(int32 ToCol, int32 MaxMovement, TArray<FName>& ColPossibilities, TArray<FName>& AllColSurroundings) const;
-
-	UFUNCTION(BlueprintCallable)
-	void GetDiagonalPossbilitiesByParams(int32 A, int32 B, int32 MaxMovement, TArray<FName>& Possibilities, TArray<FName>& AllInRangePossibilities) const;
-
-	UFUNCTION(BlueprintCallable)
-	void GetRowPossibilitiesByParams(int32 ToRow, int32 LastIndex, TArray<FName>& RowPossibilities, TArray<FName>& AllRowSurroundings) const;
-
-	UFUNCTION(BlueprintCallable)
-	void GetDiagonalPossibilities(int32 MaxMovement, TArray<FName>& ValidDiagonalPossibilities, TArray<FName>& AllDiagonalPossibilities) const;
-
-	UFUNCTION(BlueprintCallable)
-	virtual bool CalcCheckingKing();
-
-	UFUNCTION(BlueprintCallable)
-	virtual bool CanCheckToSlot(FName InSlotName);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	void GetSlotNameByColRow(int32 Col, int32 Row, FName& SocketName, bool& InRange) const;
-
-	UFUNCTION(BlueprintCallable)
 	bool GetIsObjectBelongToPlayer(int32 PlayerIndex);
-
-	UFUNCTION(BlueprintCallable)
-	void AddDiagonalPossibilities(int32 MaxMovement);
-
-	UFUNCTION(BlueprintCallable)
-	void AddStraightPossibilities(int32 MaxMovement);
-
-	UFUNCTION(BlueprintCallable)
-	void GetCastlingPossibilities(TArray<FName>& KingFrom, TArray<FName>& KingTo, bool& IsCastlingPossible, TArray<FName>& RookFrom, TArray<FName>& RookTo) const;
-
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	bool IsSlotEmpty(FName InSlotName) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	void GetSlotByName(FName InSlotName, AMCTableSlot*& Slot, bool& bIsValid) const;
 
 	UFUNCTION(BlueprintCallable)
-	bool IsObjectOnSlotWithType(FName CurrentSlot, FName SlotToCheck, E_ObjectType ObjectTypeToCheck) const;
-
-	UFUNCTION(BlueprintCallable)
-	void GetStraightPossibilities(int32 MaxMovement, TArray<FName>& ValidStraightPossibilities, TArray<FName>& AllInRangeStraightPossibilities) const;
-
-	UFUNCTION(BlueprintCallable)
-	void GetKingPossibilities(TArray<FName>& Possibilities, TArray<FName>& NotValidPossibilities) const;
-
-	UFUNCTION(BlueprintCallable)
 	void GetOpponentKing(AMCKing*& OpponentKing, bool& bIsValid) const;
-
-	UFUNCTION(BlueprintCallable)
-	TArray<FName> GetDiagonalSurroundings(int32 MaxMovement) const;
-
-	UFUNCTION(BlueprintCallable)
-	TArray<FName> GetStraightSurroundings(int32 MaxMovement) const;
 
 	// ---- EventGraph ----
 	UFUNCTION(Server, Reliable, BlueprintCallable)

@@ -54,9 +54,6 @@ public:
 	void Server_SwitchSelection(AMCChessObjectBase* SelectedObject, AMCChessObjectBase* NewSelectedObject);
 
 	UFUNCTION(Server, Reliable, BlueprintCallable)
-	void Server_DoCastling(AMCChessObjectBase* KingObject, FName KingNewSlot, AMCChessObjectBase* RookObject, FName RookNewSlot);
-
-	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void Server_ClickedToObject(AMCGame_PC* PlayerController, AMCChessObjectBase* NewSelectedObject);
 
 	UFUNCTION(Server, Reliable, BlueprintCallable)
@@ -74,16 +71,12 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void TryPawnReplacement(FName Slot, E_ObjectType NewObjectType);
 
+	// Shows a message on this player's own screen.
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void Client_ShowMessage(const FString& Message);
+
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	AMCChessTable* GetChessTable() const;
-
-	// Not called anywhere in the Blueprint.
-	UFUNCTION(BlueprintCallable)
-	bool DetectCastling(AMCChessObjectBase* NewSelectedObject, AMCChessObjectBase* SelectedObject);
-
-	// Empty in the Blueprint.
-	UFUNCTION(BlueprintCallable)
-	void DetectSwitching(AMCChessObjectBase* NewSelectedObject);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool IsSlotEmpty(FName SlotName) const;

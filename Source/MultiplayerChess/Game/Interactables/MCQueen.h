@@ -4,7 +4,7 @@
 #include "Game/Interactables/MCChessObjectBase.h"
 #include "MCQueen.generated.h"
 
-// Port of BP_Queen.
+// Port of BP_Queen. Movement comes from FMCChessRules through AMCChessObjectBase::CalcPossibility.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCQueen : public AMCChessObjectBase
 {
@@ -12,8 +12,4 @@ class MULTIPLAYERCHESS_API AMCQueen : public AMCChessObjectBase
 
 public:
 	AMCQueen();
-
-	virtual void CalcPossibility() override;
-	virtual bool CalcCheckingKing() override;
-	virtual bool CanCheckToSlot(FName InSlotName) override;
 };

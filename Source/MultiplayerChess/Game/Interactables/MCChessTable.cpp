@@ -261,9 +261,9 @@ void AMCChessTable::GetObjectBySlotName(FName SlotName, AMCChessObjectBase*& Che
 {
 	for (AMCChessObjectBase* Element : AllObjects)
 	{
-		if (!Element)
+		// Captured and promoted pieces keep their last slot name until they are gone, so skip destroyed ones.
+		if (!IsValid(Element) || Element->IsActorBeingDestroyed())
 		{
-			MC_ACCESSED_NONE("Array Element");
 			continue;
 		}
 		if (SlotName == Element->SlotName)
@@ -338,4 +338,19 @@ TMap<FName, bool> AMCChessTable::GetAllSlotsOccupationInfo() const
 		TempTableSlots.Add(Element->SlotName, IsValid(Element->AttachedObject));
 	}
 	return TempTableSlots;
+}
+
+FMCChessRules AMCChessTable::BuildRules() const
+{
+	FMCChessRules Rules;
+	for (AMCChessObjectBase* Object : AllObjects)
+	{
+		int32 Col = 0, Row = 0;
+		if (IsValid(Object) && !Object->IsActorBeingDestroyed() && FMCChessRules::ParseSquare(Object->SlotName, Col, Row))
+		{
+			Rules.SetPiece(Col, Row, Object->ObjectType, Object->IsAway, Object->IsMoved);
+		}
+	}
+	FMCChessRules::ParseSquare(EnPassantSquare, Rules.EnPassantCol, Rules.EnPassantRow);
+	return Rules;
 }

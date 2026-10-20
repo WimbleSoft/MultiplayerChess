@@ -10,6 +10,7 @@
 #include "Game/Interactables/MCQueen.h"
 #include "Game/Interactables/MCRook.h"
 #include "Game/Interactables/MCTableSlot.h"
+#include "Game/MCChessRules.h"
 #include "Game/MCGamePawn.h"
 #include "Game/MCGame_GS.h"
 #include "Game/MCGame_PC.h"
@@ -19,6 +20,14 @@
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+
+namespace
+{
+	const TCHAR* SideName(bool bAway)
+	{
+		return bAway ? TEXT("Black (AWAY)") : TEXT("White (HOME)");
+	}
+}
 
 AMCGame_GM::AMCGame_GM()
 {
@@ -39,14 +48,217 @@ void AMCGame_GM::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	TArray<AActor*> OutActors;
-	UGameplayStatics::GetAllActorsOfClass(this, AMCChessTable::StaticClass(), OutActors);
-	R_Table = OutActors.IsValidIndex(0) ? Cast<AMCChessTable>(OutActors[0]) : nullptr;
+	R_Table = UMCCommonFunctions::FindChessTable(this);
+}
+
+AMCChessTable* AMCGame_GM::GetTable() const
+{
+	return R_Table ? R_Table.Get() : UMCCommonFunctions::FindChessTable(this);
 }
 
 bool AMCGame_GM::ReadyToStartMatch()
 {
 	return GetNumPlayers() == 2;
+}
+
+bool AMCGame_GM::CanPlayerAct(AMCGame_PC* Player, FString& OutReason) const
+{
+	const AMCGame_GS* GS = GetGS();
+	if (!Player || !GS)
+	{
+		OutReason = TEXT("The game is not ready.");
+		return false;
+	}
+	if (GS->bGameOver)
+	{
+		OutReason = TEXT("The game is over.");
+		return false;
+	}
+	if (PendingPromotionPlayer)
+	{
+		OutReason = PendingPromotionPlayer == Player ? TEXT("Pick a piece for your pawn first.") : TEXT("Waiting for the other player to promote a pawn.");
+		return false;
+	}
+	if (PlayerControllers.Num() < 2)
+	{
+		OutReason = TEXT("Waiting for the second player.");
+		return false;
+	}
+	if (GS->PlayerTurnIndex != Player->GlobalPlayerIndex)
+	{
+		OutReason = TEXT("It's not your turn.");
+		return false;
+	}
+	return true;
+}
+
+bool AMCGame_GM::TryMovePiece(AMCGame_PC* Player, AMCChessObjectBase* Piece, FName TargetSlot)
+{
+	FString Reason;
+	AMCChessTable* Table = GetTable();
+	if (!CanPlayerAct(Player, Reason) || !IsValid(Piece) || !Table || Piece->IsAway != (Player->GlobalPlayerIndex == 1))
+	{
+		return false;
+	}
+
+	int32 FromCol = 0, FromRow = 0, ToCol = 0, ToRow = 0;
+	FMCMove Move;
+	if (!FMCChessRules::ParseSquare(Piece->SlotName, FromCol, FromRow) || !FMCChessRules::ParseSquare(TargetSlot, ToCol, ToRow)
+		|| !Table->BuildRules().FindLegalMove(FromCol, FromRow, ToCol, ToRow, Move))
+	{
+		return false;
+	}
+
+	AMCTableSlot* TargetSlotActor = nullptr;
+	bool bSlotValid = false;
+	Table->GetSlotByName(TargetSlot, TargetSlotActor, bSlotValid);
+	if (!bSlotValid)
+	{
+		return false;
+	}
+
+	AMCGame_PC* Opponent = GetOpponentPlayer(Player);
+	if (Move.Kind == EMCMoveKind::EnPassant)
+	{
+		AMCChessObjectBase* Captured = nullptr;
+		bool bCapturedValid = false;
+		Table->GetObjectBySlotName(FMCChessRules::MakeSquareName(ToCol, FromRow), Captured, bCapturedValid);
+		if (bCapturedValid)
+		{
+			AMCTableSlot* CapturedSlot = nullptr;
+			bool bCapturedSlotValid = false;
+			Captured->GetCurrentSlot(CapturedSlot, bCapturedSlotValid);
+			BeatObject(Player, Captured, Opponent);
+			if (CapturedSlot)
+			{
+				CapturedSlot->Server_SetAttachedObject(nullptr);
+			}
+		}
+	}
+	else if (Move.bCapture && IsValid(TargetSlotActor->AttachedObject))
+	{
+		BeatObject(Player, TargetSlotActor->AttachedObject, Opponent);
+		TargetSlotActor->Server_SetAttachedObject(nullptr);
+	}
+
+	MoveObjectToEmptySlot(TargetSlotActor, Piece);
+
+	if (Move.Kind == EMCMoveKind::CastleKingSide || Move.Kind == EMCMoveKind::CastleQueenSide)
+	{
+		const bool bKingSide = Move.Kind == EMCMoveKind::CastleKingSide;
+		AMCChessObjectBase* Rook = nullptr;
+		bool bRookValid = false;
+		Table->GetObjectBySlotName(FMCChessRules::MakeSquareName(bKingSide ? 8 : 1, FromRow), Rook, bRookValid);
+		AMCTableSlot* RookTarget = nullptr;
+		bool bRookTargetValid = false;
+		Table->GetSlotByName(FMCChessRules::MakeSquareName(bKingSide ? 6 : 4, FromRow), RookTarget, bRookTargetValid);
+		if (bRookValid && bRookTargetValid)
+		{
+			MoveObjectToEmptySlot(RookTarget, Rook);
+		}
+	}
+
+	Table->EnPassantSquare = Move.Kind == EMCMoveKind::DoublePawnStep ? FMCChessRules::MakeSquareName(FromCol, (FromRow + ToRow) / 2) : NAME_None;
+	ResetSelectedObject(Player);
+
+	if (Move.bPromotion)
+	{
+		// The turn waits until the player picks the new piece in WBP_ObjectSelector.
+		PendingPromotionPlayer = Player;
+		PendingPromotionSlot = TargetSlot;
+		Player->Client_CreatePawnReplacementSelector(TargetSlot, Player);
+		UpdateCheckState();
+		return true;
+	}
+
+	FinishTurn();
+	return true;
+}
+
+void AMCGame_GM::CompletePromotion(AMCGame_PC* Player, FName Slot, E_ObjectType NewObjectType)
+{
+	if (!Player || Player != PendingPromotionPlayer || Slot != PendingPromotionSlot)
+	{
+		return;
+	}
+	if (NewObjectType != E_ObjectType::Queen && NewObjectType != E_ObjectType::Rook && NewObjectType != E_ObjectType::Bishop && NewObjectType != E_ObjectType::Knight)
+	{
+		return;
+	}
+	AMCChessTable* Table = GetTable();
+	AMCChessObjectBase* PawnObject = nullptr;
+	bool bPawnValid = false;
+	if (Table)
+	{
+		Table->GetObjectBySlotName(Slot, PawnObject, bPawnValid);
+	}
+	if (!bPawnValid || PawnObject->ObjectType != E_ObjectType::Pawn)
+	{
+		return;
+	}
+
+	PendingPromotionPlayer = nullptr;
+	PendingPromotionSlot = NAME_None;
+	ReplacePawnWithNewObject(Slot, PawnObject, NewObjectType, PawnObject->IsAway);
+	FinishTurn();
+}
+
+void AMCGame_GM::FinishTurn()
+{
+	AMCGame_GS* GS = GetGS();
+	AMCChessTable* Table = GetTable();
+	if (!GS || !Table)
+	{
+		return;
+	}
+	GS->SetNewTurnIndex();
+	UpdateCheckState();
+
+	const bool bSideToMoveAway = GS->PlayerTurnIndex == 1;
+	const FMCChessRules Rules = Table->BuildRules();
+	const bool bInCheck = Rules.IsInCheck(bSideToMoveAway);
+	if (!Rules.HasAnyLegalMove(bSideToMoveAway))
+	{
+		if (bInCheck)
+		{
+			EndGame(bSideToMoveAway ? 0 : 1, FString::Printf(TEXT("Checkmate! %s wins."), SideName(!bSideToMoveAway)));
+		}
+		else
+		{
+			EndGame(-1, TEXT("Stalemate. The game is a draw."));
+		}
+		return;
+	}
+	GS->Multicast_ShowMessage(FString::Printf(TEXT("%s to move%s"), SideName(bSideToMoveAway), bInCheck ? TEXT(" - CHECK!") : TEXT("")),
+		bInCheck ? FLinearColor(1.f, 0.2f, 0.2f, 1.f) : FLinearColor(0.6f, 1.f, 0.6f, 1.f), 4.f);
+}
+
+void AMCGame_GM::EndGame(int32 WinnerIndex, const FString& Message)
+{
+	if (AMCGame_GS* GS = GetGS())
+	{
+		GS->bGameOver = true;
+		GS->WinnerIndex = WinnerIndex;
+		GS->Multicast_ShowMessage(Message, FLinearColor(1.f, 0.85f, 0.f, 1.f), 600.f);
+	}
+}
+
+void AMCGame_GM::UpdateCheckState()
+{
+	AMCChessTable* Table = GetTable();
+	if (!Table)
+	{
+		return;
+	}
+	const FMCChessRules Rules = Table->BuildRules();
+	for (AMCChessObjectBase* Object : Table->AllObjects)
+	{
+		AMCKing* King = Cast<AMCKing>(Object);
+		if (IsValid(King))
+		{
+			King->MarkChecked(Rules.IsInCheck(King->IsAway));
+		}
+	}
 }
 
 void AMCGame_GM::MoveObjectToEmptySlot(AMCTableSlot* NewSlot, AMCChessObjectBase* SelectedObject)
@@ -64,10 +276,6 @@ void AMCGame_GM::MoveObjectToEmptySlot(AMCTableSlot* NewSlot, AMCChessObjectBase
 	{
 		CurrentSlot->Server_SetAttachedObject(nullptr);
 	}
-	else
-	{
-		MC_ACCESSED_NONE("GetCurrentSlot.Slot");
-	}
 
 	SelectedObject->AttachToActor(NewSlot, FAttachmentTransformRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, true));
 	if (NewSlot)
@@ -82,7 +290,6 @@ void AMCGame_GM::MoveObjectToEmptySlot(AMCTableSlot* NewSlot, AMCChessObjectBase
 	}
 	SelectedObject->Server_IsSelected(false);
 	SelectedObject->S_SetIsMoved(true);
-	ProcessCheckingPossibility(SelectedObject);
 }
 
 void AMCGame_GM::ResetSelectedObject(AMCGame_PC* Player)
@@ -91,14 +298,6 @@ void AMCGame_GM::ResetSelectedObject(AMCGame_PC* Player)
 	{
 		Player->SelectedChessObject = nullptr;
 		Player->NewSelectedChessObject = nullptr;
-	}
-	else
-	{
-		MC_ACCESSED_NONE("Player");
-	}
-	if (AMCGame_GS* GS = GetGS())
-	{
-		GS->SetNewTurnIndex();
 	}
 }
 
@@ -110,6 +309,10 @@ void AMCGame_GM::BeatObject(AMCGame_PC* BeaterPlayer, AMCChessObjectBase* Object
 	}
 	if (ObjectToBeat)
 	{
+		if (AMCChessTable* Table = GetTable())
+		{
+			Table->AllObjects.Remove(ObjectToBeat);
+		}
 		ObjectToBeat->Destroy();
 	}
 }
@@ -121,45 +324,9 @@ AMCGame_PC* AMCGame_GM::GetOpponentPlayer(AMCGame_PC* ItemToFind)
 	return PlayerControllers.IsValidIndex(Index) ? PlayerControllers[Index].Get() : nullptr;
 }
 
-void AMCGame_GM::ObjectClicked(AMCGame_PC* Player, AMCChessObjectBase* ObjectToBeat)
-{
-	AMCTableSlot* TempSlot = nullptr;
-	if (ObjectToBeat)
-	{
-		bool bSlotValid = false;
-		ObjectToBeat->GetCurrentSlot(TempSlot, bSlotValid);
-	}
-	BeatObject(Player, ObjectToBeat, GetOpponentPlayer(Player));
-	if (TempSlot)
-	{
-		TempSlot->Server_SetAttachedObject(nullptr);
-	}
-	SlotClicked(Player, TempSlot, Player ? Player->SelectedChessObject.Get() : nullptr);
-}
-
 AMCGame_GS* AMCGame_GM::GetGS() const
 {
 	return GetGameState<AMCGame_GS>();
-}
-
-void AMCGame_GM::SlotClicked(AMCGame_PC* Player, AMCTableSlot* NewSlot, AMCChessObjectBase* SelectedObject)
-{
-	if (!IsValid(SelectedObject))
-	{
-		return;
-	}
-
-	int32 Row = 0, Col = 0;
-	UMCCommonFunctions::ResolveSlotByNameCommon(NewSlot ? NewSlot->SlotName : NAME_None, Row, Col);
-	if (SelectedObject->ObjectType == E_ObjectType::Pawn && Row == (SelectedObject->IsAway ? 1 : 8))
-	{
-		if (Player)
-		{
-			Player->Client_CreatePawnReplacementSelector(NewSlot ? NewSlot->SlotName : NAME_None, Player);
-		}
-	}
-	MoveObjectToEmptySlot(NewSlot, SelectedObject);
-	ResetSelectedObject(Player);
 }
 
 void AMCGame_GM::OnPostLogin(AController* NewPlayer)
@@ -226,12 +393,16 @@ void AMCGame_GM::Server_OnLogin(UObject* Object)
 
 void AMCGame_GM::ReplacePawnWithNewObject(FName Slot, AMCChessObjectBase* PawnObject, E_ObjectType NewObjectType, bool IsAway)
 {
+	AMCChessTable* Table = GetTable();
 	if (PawnObject)
 	{
+		if (Table)
+		{
+			Table->AllObjects.Remove(PawnObject);
+		}
 		PawnObject->Destroy();
 	}
 
-	AMCChessTable* Table = UMCCommonFunctions::FindChessTable(this);
 	if (!Table)
 	{
 		MC_ACCESSED_NONE("GetChessTableCommon");
@@ -245,27 +416,11 @@ void AMCGame_GM::ReplacePawnWithNewObject(FName Slot, AMCChessObjectBase* PawnOb
 	ObjectMap.ObjectType = NewObjectType;
 	Table->SpawnObject(ObjectMap);
 
-	AMCTableSlot* NewSlot = nullptr;
-	bool bSlotValid = false;
-	Table->GetSlotByName(Slot, NewSlot, bSlotValid);
-	if (bSlotValid)
+	AMCChessObjectBase* NewObject = nullptr;
+	bool bNewValid = false;
+	Table->GetObjectBySlotName(Slot, NewObject, bNewValid);
+	if (bNewValid)
 	{
-		ProcessCheckingPossibility(NewSlot->AttachedObject);
-	}
-}
-
-void AMCGame_GM::ProcessCheckingPossibility(AMCChessObjectBase* AttackerObject)
-{
-	if (!AttackerObject)
-	{
-		MC_ACCESSED_NONE("AttackerObject");
-		return;
-	}
-	AMCKing* OpponentKing = nullptr;
-	bool bKingValid = false;
-	AttackerObject->GetOpponentKing(OpponentKing, bKingValid);
-	if (bKingValid)
-	{
-		OpponentKing->S_MarkChecked(AttackerObject->CanCheckToSlot(OpponentKing->SlotName));
+		NewObject->S_SetIsMoved(true);
 	}
 }

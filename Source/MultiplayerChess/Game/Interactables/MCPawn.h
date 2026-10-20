@@ -4,7 +4,7 @@
 #include "Game/Interactables/MCChessObjectBase.h"
 #include "MCPawn.generated.h"
 
-// Port of BP_Pawn (the chess pawn, not an Unreal APawn).
+// Port of BP_Pawn (the chess pawn, not an Unreal APawn). Movement comes from FMCChessRules through AMCChessObjectBase::CalcPossibility.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCPawn : public AMCChessObjectBase
 {
@@ -12,11 +12,4 @@ class MULTIPLAYERCHESS_API AMCPawn : public AMCChessObjectBase
 
 public:
 	AMCPawn();
-
-	virtual void CalcPossibility() override;
-	virtual bool CalcCheckingKing() override;
-	virtual bool CanCheckToSlot(FName InSlotName) override;
-
-	UFUNCTION(BlueprintCallable)
-	TArray<FName> GetPawnPossibilities() const;
 };

@@ -4,7 +4,7 @@
 #include "Game/Interactables/MCChessObjectBase.h"
 #include "MCRook.generated.h"
 
-// Port of BP_Rook.
+// Port of BP_Rook. Movement comes from FMCChessRules through AMCChessObjectBase::CalcPossibility.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCRook : public AMCChessObjectBase
 {
@@ -12,8 +12,4 @@ class MULTIPLAYERCHESS_API AMCRook : public AMCChessObjectBase
 
 public:
 	AMCRook();
-
-	virtual void CalcPossibility() override;
-	virtual bool CalcCheckingKing() override;
-	virtual bool CanCheckToSlot(FName InSlotName) override;
 };

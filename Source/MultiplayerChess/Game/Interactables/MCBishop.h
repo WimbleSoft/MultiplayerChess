@@ -4,7 +4,7 @@
 #include "Game/Interactables/MCChessObjectBase.h"
 #include "MCBishop.generated.h"
 
-// Port of BP_Bishop.
+// Port of BP_Bishop. Movement comes from FMCChessRules through AMCChessObjectBase::CalcPossibility.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCBishop : public AMCChessObjectBase
 {
@@ -12,8 +12,4 @@ class MULTIPLAYERCHESS_API AMCBishop : public AMCChessObjectBase
 
 public:
 	AMCBishop();
-
-	virtual void CalcPossibility() override;
-	virtual bool CalcCheckingKing() override;
-	virtual bool CanCheckToSlot(FName InSlotName) override;
 };

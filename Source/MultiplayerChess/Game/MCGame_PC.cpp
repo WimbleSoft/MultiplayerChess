@@ -93,109 +93,52 @@ void AMCGame_PC::Server_SwitchSelection_Implementation(AMCChessObjectBase* Selec
 	}
 }
 
-void AMCGame_PC::Server_DoCastling_Implementation(AMCChessObjectBase* KingObject, FName KingNewSlot, AMCChessObjectBase* RookObject, FName RookNewSlot)
-{
-	if (!GameMode)
-	{
-		MC_ACCESSED_NONE("GameMode");
-	}
-	else
-	{
-		AMCTableSlot* KingSlot = nullptr;
-		AMCTableSlot* RookSlot = nullptr;
-		bool bValid = false;
-		GetSlotByName(KingNewSlot, KingSlot, bValid);
-		GameMode->MoveObjectToEmptySlot(KingSlot, KingObject);
-		GetSlotByName(RookNewSlot, RookSlot, bValid);
-		GameMode->MoveObjectToEmptySlot(RookSlot, RookObject);
-	}
-	SelectedChessObject = nullptr;
-}
-
 void AMCGame_PC::Server_ClickedToObject_Implementation(AMCGame_PC* PlayerController, AMCChessObjectBase* NewSelectedObject)
 {
-	AMCGame_GM* GM = Cast<AMCGame_GM>(UGameplayStatics::GetGameMode(this));
-	const int32 PlayerIndex = GM ? GM->PlayerControllers.Find(PlayerController) : INDEX_NONE;
-	if (IsObjectBelongToPlayer(PlayerIndex, NewSelectedObject))
+	FString Reason;
+	if (!GameMode || !GameMode->CanPlayerAct(this, Reason))
+	{
+		Client_ShowMessage(GameMode ? Reason : FString(TEXT("The game is not ready.")));
+		return;
+	}
+	if (IsObjectBelongToPlayer(GlobalPlayerIndex, NewSelectedObject))
 	{
 		Server_ObjectSelected(NewSelectedObject);
 		return;
 	}
 
+	// Clicking an enemy piece is an attempt to capture it with the selected piece.
 	AMCTableSlot* Slot = nullptr;
 	bool bSlotValid = false;
 	if (NewSelectedObject)
 	{
 		NewSelectedObject->GetCurrentSlot(Slot, bSlotValid);
 	}
-	if (bSlotValid && Slot->IsActive)
+	if (bSlotValid && IsValid(SelectedChessObject))
 	{
 		Server_ClickedToSlot(Slot);
 	}
 	else
 	{
-		UKismetSystemLibrary::PrintString(this, TEXT("This doesn't belong to you."), true, false, FLinearColor(1.f, 0.41f, 0.f, 1.f), 2.f);
+		Client_ShowMessage(TEXT("This doesn't belong to you."));
 	}
 }
 
 void AMCGame_PC::Server_ClickedToSlot_Implementation(AMCTableSlot* NewSlot)
 {
-	if (!NewSlot)
+	FString Reason;
+	if (!GameMode || !GameMode->CanPlayerAct(this, Reason))
 	{
-		MC_ACCESSED_NONE("NewSlot");
+		Client_ShowMessage(GameMode ? Reason : FString(TEXT("The game is not ready.")));
 		return;
 	}
-
-	if (IsSlotEmpty(NewSlot->SlotName))
+	if (!NewSlot || !IsValid(SelectedChessObject))
 	{
-		if (IsValid(SelectedChessObject) && SelectedChessObject->ObjectType == E_ObjectType::King)
-		{
-			TArray<FName> KingFrom, KingTo, RookFrom, RookTo;
-			bool IsCastlingPossible = false;
-			SelectedChessObject->GetCastlingPossibilities(KingFrom, KingTo, IsCastlingPossible, RookFrom, RookTo);
-			if (IsCastlingPossible)
-			{
-				// As in the Blueprint: while castling is possible, a king click on any other empty slot does nothing.
-				const int32 Index = KingTo.Find(NewSlot->SlotName);
-				AMCChessTable* Table = UMCCommonFunctions::FindChessTable(this);
-				AMCChessObjectBase* Rook = nullptr;
-				bool bRookValid = false;
-				if (Table && RookFrom.IsValidIndex(Index))
-				{
-					Table->GetObjectBySlotName(RookFrom[Index], Rook, bRookValid);
-				}
-				if (KingTo.Contains(NewSlot->SlotName) && bRookValid)
-				{
-					Server_DoCastling(SelectedChessObject, NewSlot->SlotName, Rook, RookTo.IsValidIndex(Index) ? RookTo[Index] : NAME_None);
-				}
-				return;
-			}
-		}
-
-		if (!GameMode)
-		{
-			MC_ACCESSED_NONE("GameMode");
-			return;
-		}
-		GameMode->SlotClicked(this, NewSlot, SelectedChessObject);
+		return;
 	}
-	else
+	if (!GameMode->TryMovePiece(this, SelectedChessObject, NewSlot->SlotName))
 	{
-		AMCChessObjectBase* Attached = NewSlot->AttachedObject;
-		const bool bAttachedIsAway = Attached ? Attached->IsAway : false;
-		if (bAttachedIsAway == (0 == GlobalPlayerIndex))
-		{
-			if (!GameMode)
-			{
-				MC_ACCESSED_NONE("GameMode");
-				return;
-			}
-			GameMode->ObjectClicked(this, Attached);
-		}
-		else
-		{
-			UKismetSystemLibrary::PrintString(this, TEXT("This slot is not empty and filled with your own object."), true, false, FLinearColor(1.f, 0.41f, 0.f, 1.f), 5.f);
-		}
+		Client_ShowMessage(TEXT("That move is not allowed."));
 	}
 }
 
@@ -223,22 +166,17 @@ void AMCGame_PC::Client_CreatePawnReplacementSelector_Implementation(FName SlotT
 
 void AMCGame_PC::TryPawnReplacement_Implementation(FName Slot, E_ObjectType NewObjectType)
 {
-	AMCTableSlot* TargetSlot = nullptr;
-	bool bSlotValid = false;
-	GetSlotByName(Slot, TargetSlot, bSlotValid);
-	if (!bSlotValid || !IsValid(TargetSlot->AttachedObject))
+	if (!GameMode)
 	{
+		MC_ACCESSED_NONE("GameMode");
 		return;
 	}
-	if (TargetSlot->AttachedObject->IsAway == (GlobalPlayerIndex == 1))
-	{
-		if (!GameMode)
-		{
-			MC_ACCESSED_NONE("GameMode");
-			return;
-		}
-		GameMode->ReplacePawnWithNewObject(Slot, TargetSlot->AttachedObject, NewObjectType, GlobalPlayerIndex == 1);
-	}
+	GameMode->CompletePromotion(this, Slot, NewObjectType);
+}
+
+void AMCGame_PC::Client_ShowMessage_Implementation(const FString& Message)
+{
+	UKismetSystemLibrary::PrintString(this, Message, true, true, FLinearColor(1.f, 0.41f, 0.f, 1.f), 3.f);
 }
 
 AMCChessTable* AMCGame_PC::GetChessTable() const
@@ -246,36 +184,6 @@ AMCChessTable* AMCGame_PC::GetChessTable() const
 	TArray<AActor*> OutActors;
 	UGameplayStatics::GetAllActorsOfClass(this, AMCChessTable::StaticClass(), OutActors);
 	return OutActors.IsValidIndex(0) ? Cast<AMCChessTable>(OutActors[0]) : nullptr;
-}
-
-bool AMCGame_PC::DetectCastling(AMCChessObjectBase* NewSelectedObject, AMCChessObjectBase* SelectedObject)
-{
-	if (!NewSelectedObject || !SelectedObject)
-	{
-		MC_ACCESSED_NONE("SelectedObject");
-		return false;
-	}
-	auto Is = [](AMCChessObjectBase* Object, const TCHAR* Slot, E_ObjectType Type)
-	{
-		return !Object->IsMoved && Object->SlotName == FName(Slot) && Object->ObjectType == Type;
-	};
-	auto Side = [&](const TCHAR* E, const TCHAR* H, const TCHAR* A, const TCHAR* F, const TCHAR* G, const TCHAR* D, const TCHAR* C, const TCHAR* B)
-	{
-		const bool bShortEmpty = IsSlotEmpty(F) && IsSlotEmpty(G);
-		const bool bLongEmpty = IsSlotEmpty(D) && IsSlotEmpty(C) && IsSlotEmpty(B);
-		return (Is(SelectedObject, E, E_ObjectType::King) && Is(NewSelectedObject, H, E_ObjectType::Rook) && bShortEmpty)
-			|| (bShortEmpty && Is(SelectedObject, H, E_ObjectType::Rook) && Is(NewSelectedObject, E, E_ObjectType::King))
-			|| (Is(SelectedObject, E, E_ObjectType::King) && Is(NewSelectedObject, A, E_ObjectType::Rook) && bLongEmpty)
-			|| (bLongEmpty && Is(SelectedObject, A, E_ObjectType::Rook) && Is(NewSelectedObject, E, E_ObjectType::King));
-	};
-	// Only same sides of selections can make castling.
-	return SelectedObject->IsAway == NewSelectedObject->IsAway
-		&& (Side(TEXT("E1"), TEXT("H1"), TEXT("A1"), TEXT("F1"), TEXT("G1"), TEXT("D1"), TEXT("C1"), TEXT("B1"))
-			|| Side(TEXT("E8"), TEXT("H8"), TEXT("A8"), TEXT("F8"), TEXT("G8"), TEXT("D8"), TEXT("C8"), TEXT("B8")));
-}
-
-void AMCGame_PC::DetectSwitching(AMCChessObjectBase* NewSelectedObject)
-{
 }
 
 bool AMCGame_PC::IsSlotEmpty(FName SlotName) const

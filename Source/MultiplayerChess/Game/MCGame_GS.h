@@ -14,8 +14,16 @@ class MULTIPLAYERCHESS_API AMCGame_GS : public AGameStateBase
 	GENERATED_BODY()
 
 public:
+	// GlobalPlayerIndex of the player to move: 0 = HOME (white, starts), 1 = AWAY.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
 	int32 PlayerTurnIndex = 0;
+
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bGameOver = false;
+
+	// GlobalPlayerIndex of the winner, -1 for a draw.
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	int32 WinnerIndex = -1;
 
 	// Never used by the Blueprint.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -34,4 +42,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetNewTurnIndex();
+
+	// Shows a message on every player's screen.
+	UFUNCTION(NetMulticast, Reliable, BlueprintCallable)
+	void Multicast_ShowMessage(const FString& Message, FLinearColor Color, float Duration);
 };
