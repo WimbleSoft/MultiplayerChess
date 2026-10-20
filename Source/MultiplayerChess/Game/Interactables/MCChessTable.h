@@ -47,6 +47,7 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable)
 	void ClearSlotsObjects();
@@ -75,4 +76,7 @@ public:
 private:
 	// Equivalent of the Blueprint "Add Child Actor Component" node.
 	UChildActorComponent* AddChildActorComponent(TSubclassOf<AActor> ChildClass);
+
+	// Child actor components that BeginPlay hands back out, in creation order, instead of adding new ones.
+	TArray<TObjectPtr<UChildActorComponent>> ReusableChildActorComponents;
 };

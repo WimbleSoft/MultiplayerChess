@@ -110,8 +110,48 @@ void AMCChessTable::OnConstruction(const FTransform& Transform)
 	SpawnObjects();
 }
 
+void AMCChessTable::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// A Blueprint's construction script runs again for the play world, a native OnConstruction does not. In PIE the
+	// board's child actors are spawned again from scratch at the board's origin, so the server repeats the setup
+	// (slot names, colours, socket attachment, piece placement) on the existing components.
+	if (!HasAuthority())
+	{
+		return;
+	}
+	ReusableChildActorComponents.Reset();
+	for (UActorComponent* Component : BlueprintCreatedComponents)
+	{
+		if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(Component))
+		{
+			ReusableChildActorComponents.Add(ChildActorComponent);
+		}
+	}
+	AllSlots.Reset();
+	AllObjects.Reset();
+	SpawnSlots();
+	SpawnObjects();
+	ReusableChildActorComponents.Reset();
+}
+
 UChildActorComponent* AMCChessTable::AddChildActorComponent(TSubclassOf<AActor> ChildClass)
 {
+	if (ReusableChildActorComponents.Num() > 0)
+	{
+		UChildActorComponent* Existing = ReusableChildActorComponents[0];
+		ReusableChildActorComponents.RemoveAt(0);
+		if (Existing)
+		{
+			if (Existing->GetChildActorClass() != ChildClass)
+			{
+				Existing->SetChildActorClass(ChildClass);
+			}
+			return Existing;
+		}
+	}
+
 	// Same path as the Blueprint "Add Child Actor Component" node: the component is tracked as created by the
 	// construction script, so it is saved with the level and rebuilt (not duplicated) when construction reruns.
 	UChildActorComponent* Component = Cast<UChildActorComponent>(AddComponentByClass(UChildActorComponent::StaticClass(), true, FTransform::Identity, true));
