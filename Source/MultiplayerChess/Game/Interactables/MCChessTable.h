@@ -10,8 +10,10 @@ class AMCTableSlot;
 class UChildActorComponent;
 class UDataTable;
 class USceneComponent;
+class USkeletalMeshComponent;
+class UTextRenderComponent;
 
-// Port of BP_ChessTable. Its components (SM_Table skeletal mesh, the coordinate TextRenders) stay in the Blueprint.
+// Port of BP_ChessTable.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCChessTable : public AActor
 {
@@ -19,6 +21,16 @@ class MULTIPLAYERCHESS_API AMCChessTable : public AActor
 
 public:
 	AMCChessTable();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<USkeletalMeshComponent> SM_Table;
+
+	// Parent of the 32 coordinate labels (A_Home..H_Away, 1_Home..8_Away).
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<USceneComponent> Texts;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TArray<TObjectPtr<UTextRenderComponent>> Labels;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
 	TArray<TObjectPtr<AMCTableSlot>> AllSlots;
@@ -29,9 +41,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
 	TArray<TObjectPtr<AMCChessObjectBase>> AllObjects;
 
-	// BP_TableSlot; spawned for each of the 64 squares.
+	// Spawned for each of the 64 squares (BP_TableSlot_C in the Blueprint).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSoftClassPtr<AMCTableSlot> TableSlotClass;
+	TSubclassOf<AMCTableSlot> TableSlotClass;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnConstruction(const FTransform& Transform) override;
@@ -62,10 +74,5 @@ public:
 
 private:
 	// Equivalent of the Blueprint "Add Child Actor Component" node.
-	UChildActorComponent* AddChildActorComponent(TSubclassOf<AActor> ChildClass, FName ComponentName);
-
-	USceneComponent* FindSceneComponent(FName ComponentName) const;
-
-	// True while OnConstruction runs, so components made there are owned by the construction script like in the Blueprint.
-	bool bRunningConstructionScript = false;
+	UChildActorComponent* AddChildActorComponent(TSubclassOf<AActor> ChildClass);
 };

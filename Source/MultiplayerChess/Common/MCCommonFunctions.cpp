@@ -4,11 +4,16 @@
 #include "Kismet/GameplayStatics.h"
 #include "MultiplayerChess.h"
 
-AMCChessTable* UMCCommonFunctions::GetChessTableCommon(const UObject* WorldContextObject)
+AMCChessTable* UMCCommonFunctions::FindChessTable(const UObject* WorldContextObject)
 {
 	TArray<AActor*> OutActors;
 	UGameplayStatics::GetAllActorsOfClass(WorldContextObject, AMCChessTable::StaticClass(), OutActors);
 	return OutActors.IsValidIndex(0) ? Cast<AMCChessTable>(OutActors[0]) : nullptr;
+}
+
+void UMCCommonFunctions::GetChessTableCommon(const UObject* WorldContextObject, AMCChessTable*& ChessTable)
+{
+	ChessTable = FindChessTable(WorldContextObject);
 }
 
 FText UMCCommonFunctions::MakeSlotNameCommon(int32 Row, int32 Col)
@@ -27,9 +32,14 @@ void UMCCommonFunctions::ResolveSlotByNameCommon(FName SlotName, int32& Row, int
 	Col = GetColumnLetters().Find(Name.Mid(0, 1));
 }
 
-AMCGame_PC* UMCCommonFunctions::GetGamePC(const UObject* WorldContextObject)
+AMCGame_PC* UMCCommonFunctions::FindGamePC(const UObject* WorldContextObject)
 {
 	return Cast<AMCGame_PC>(UGameplayStatics::GetPlayerController(WorldContextObject, 0));
+}
+
+void UMCCommonFunctions::GetGamePC(const UObject* WorldContextObject, AMCGame_PC*& GamePC)
+{
+	GamePC = FindGamePC(WorldContextObject);
 }
 
 const TArray<FString>& UMCCommonFunctions::GetColumnLetters()

@@ -73,8 +73,11 @@ class MULTIPLAYERCHESS_API UMCCommonFunctions : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 public:
+	// Output pins keep the Blueprint names ("ChessTable", "GamePC") so existing widget nodes stay connected.
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Common", meta = (WorldContext = "WorldContextObject"))
-	static AMCChessTable* GetChessTableCommon(const UObject* WorldContextObject);
+	static void GetChessTableCommon(const UObject* WorldContextObject, AMCChessTable*& ChessTable);
+
+	static AMCChessTable* FindChessTable(const UObject* WorldContextObject);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Common")
 	static FText MakeSlotNameCommon(int32 Row, int32 Col);
@@ -83,7 +86,9 @@ public:
 	static void ResolveSlotByNameCommon(FName SlotName, int32& Row, int32& Col);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Common", meta = (WorldContext = "WorldContextObject"))
-	static AMCGame_PC* GetGamePC(const UObject* WorldContextObject);
+	static void GetGamePC(const UObject* WorldContextObject, AMCGame_PC*& GamePC);
+
+	static AMCGame_PC* FindGamePC(const UObject* WorldContextObject);
 
 	// Column letters as used by the Blueprints: index 0 and 9 are empty strings, A..H are 1..8.
 	static const TArray<FString>& GetColumnLetters();

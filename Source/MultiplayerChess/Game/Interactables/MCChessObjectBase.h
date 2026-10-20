@@ -16,8 +16,6 @@ class UStaticMeshComponent;
 class UTextRenderComponent;
 
 // Port of BP_ChessObjectBase.
-// The components (SM_ChessObject, TextRender) stay in the Blueprint, so meshes and per-piece overrides are kept;
-// this class looks them up by name.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCChessObjectBase : public AActor, public IMCChessObjectInterface
 {
@@ -25,6 +23,12 @@ class MULTIPLAYERCHESS_API AMCChessObjectBase : public AActor, public IMCChessOb
 
 public:
 	AMCChessObjectBase();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UStaticMeshComponent> SM_ChessObject;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UTextRenderComponent> TextRender;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<UMaterialInstanceDynamic> DMI_Mesh;
@@ -223,14 +227,6 @@ public:
 	virtual void Hover_Implementation(bool IsOnHover) override {}
 
 protected:
-	UPROPERTY(Transient, BlueprintReadOnly)
-	TObjectPtr<UStaticMeshComponent> SM_ChessObjectComponent;
-
-	UPROPERTY(Transient, BlueprintReadOnly)
-	TObjectPtr<UTextRenderComponent> TextRenderComponent;
-
-	void FindBlueprintComponents();
-
 	UFUNCTION()
 	void OnMeshBeginCursorOver(UPrimitiveComponent* TouchedComponent);
 	UFUNCTION()

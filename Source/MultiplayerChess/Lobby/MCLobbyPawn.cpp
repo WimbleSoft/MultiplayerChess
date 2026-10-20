@@ -1,22 +1,28 @@
 #include "Lobby/MCLobbyPawn.h"
 #include "Game/Interactables/MCKing.h"
+#include "Camera/CameraComponent.h"
 #include "Components/ChildActorComponent.h"
+
+AMCLobbyPawn::AMCLobbyPawn()
+{
+	bReplicates = true;
+
+	ChildActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("ChildActor"));
+	RootComponent = ChildActor;
+	ChildActor->SetChildActorClass(AMCKing::StaticClass());
+
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->SetupAttachment(ChildActor);
+	Camera->SetFieldOfView(90.f);
+}
 
 void AMCLobbyPawn::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	TArray<UChildActorComponent*> ChildActors;
-	GetComponents(ChildActors);
-	for (UChildActorComponent* ChildActor : ChildActors)
+	if (AMCKing* King = ChildActor ? Cast<AMCKing>(ChildActor->GetChildActor()) : nullptr)
 	{
-		if (ChildActor->GetFName() == TEXT("ChildActor"))
-		{
-			if (AMCKing* King = Cast<AMCKing>(ChildActor->GetChildActor()))
-			{
-				// A Blueprint "Set" on a RepNotify variable also calls its OnRep function.
-				King->SetIsAwayNotify(IsAway);
-			}
-		}
+		// A Blueprint "Set" on a RepNotify variable also calls its OnRep function.
+		King->SetIsAwayNotify(IsAway);
 	}
 }

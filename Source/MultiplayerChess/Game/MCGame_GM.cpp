@@ -1,9 +1,14 @@
 #include "Game/MCGame_GM.h"
 #include "Common/MCCommonFunctions.h"
 #include "Common/S_ObjectMap.h"
+#include "Game/Interactables/MCBishop.h"
 #include "Game/Interactables/MCChessObjectBase.h"
 #include "Game/Interactables/MCChessTable.h"
 #include "Game/Interactables/MCKing.h"
+#include "Game/Interactables/MCKnight.h"
+#include "Game/Interactables/MCPawn.h"
+#include "Game/Interactables/MCQueen.h"
+#include "Game/Interactables/MCRook.h"
 #include "Game/Interactables/MCTableSlot.h"
 #include "Game/MCGamePawn.h"
 #include "Game/MCGame_GS.h"
@@ -22,17 +27,12 @@ AMCGame_GM::AMCGame_GM()
 	PlayerStateClass = AMCGame_PS::StaticClass();
 	GameStateClass = AMCGame_GS::StaticClass();
 
-	const TCHAR* Root = TEXT("/Game/Blueprints/Game/Interactables/");
-	auto ClassPath = [Root](const TCHAR* Name)
-	{
-		return TSoftClassPtr<AMCChessObjectBase>(FSoftObjectPath(FString::Printf(TEXT("%s%s.%s_C"), Root, Name, Name)));
-	};
-	ObjectClasses.Add(E_ObjectType::Bishop, ClassPath(TEXT("BP_Bishop")));
-	ObjectClasses.Add(E_ObjectType::King, ClassPath(TEXT("BP_King")));
-	ObjectClasses.Add(E_ObjectType::Knight, ClassPath(TEXT("BP_Knight")));
-	ObjectClasses.Add(E_ObjectType::Pawn, ClassPath(TEXT("BP_Pawn")));
-	ObjectClasses.Add(E_ObjectType::Queen, ClassPath(TEXT("BP_Queen")));
-	ObjectClasses.Add(E_ObjectType::Rook, ClassPath(TEXT("BP_Rook")));
+	ObjectClasses.Add(E_ObjectType::Bishop, AMCBishop::StaticClass());
+	ObjectClasses.Add(E_ObjectType::King, AMCKing::StaticClass());
+	ObjectClasses.Add(E_ObjectType::Knight, AMCKnight::StaticClass());
+	ObjectClasses.Add(E_ObjectType::Pawn, AMCPawn::StaticClass());
+	ObjectClasses.Add(E_ObjectType::Queen, AMCQueen::StaticClass());
+	ObjectClasses.Add(E_ObjectType::Rook, AMCRook::StaticClass());
 }
 
 void AMCGame_GM::OnConstruction(const FTransform& Transform)
@@ -231,7 +231,7 @@ void AMCGame_GM::ReplacePawnWithNewObject(FName Slot, AMCChessObjectBase* PawnOb
 		PawnObject->Destroy();
 	}
 
-	AMCChessTable* Table = UMCCommonFunctions::GetChessTableCommon(this);
+	AMCChessTable* Table = UMCCommonFunctions::FindChessTable(this);
 	if (!Table)
 	{
 		MC_ACCESSED_NONE("GetChessTableCommon");
@@ -239,8 +239,7 @@ void AMCGame_GM::ReplacePawnWithNewObject(FName Slot, AMCChessObjectBase* PawnOb
 	}
 
 	FS_ObjectMap ObjectMap;
-	const TSoftClassPtr<AMCChessObjectBase>* ClassPtr = ObjectClasses.Find(NewObjectType);
-	ObjectMap.Class = ClassPtr ? ClassPtr->LoadSynchronous() : nullptr;
+	ObjectMap.Class = ObjectClasses.FindRef(NewObjectType);
 	ObjectMap.SlotName = Slot;
 	ObjectMap.IsAway = IsAway;
 	ObjectMap.ObjectType = NewObjectType;

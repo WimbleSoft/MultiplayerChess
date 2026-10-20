@@ -14,7 +14,7 @@ class UPrimitiveComponent;
 class UStaticMeshComponent;
 class UTextRenderComponent;
 
-// Port of BP_TableSlot. The components (SM_Slot, TextRender) stay in the Blueprint and are looked up by name.
+// Port of BP_TableSlot.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCTableSlot : public AActor, public IMCSlotInterface
 {
@@ -22,6 +22,12 @@ class MULTIPLAYERCHESS_API AMCTableSlot : public AActor, public IMCSlotInterface
 
 public:
 	AMCTableSlot();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UStaticMeshComponent> SM_Slot;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UTextRenderComponent> TextRender;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<UMaterialInstanceDynamic> DMI_Slot;
@@ -130,13 +136,6 @@ public:
 	virtual void HidePossibles_Implementation(FName InSlotName) override {}
 
 protected:
-	UPROPERTY(Transient, BlueprintReadOnly)
-	TObjectPtr<UStaticMeshComponent> SM_SlotComponent;
-
-	UPROPERTY(Transient, BlueprintReadOnly)
-	TObjectPtr<UTextRenderComponent> TextRenderComponent;
-
-	void FindBlueprintComponents();
 	void ApplyAwayMaterial();
 
 	UFUNCTION()

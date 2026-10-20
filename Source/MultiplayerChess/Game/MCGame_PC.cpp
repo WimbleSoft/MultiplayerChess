@@ -157,7 +157,7 @@ void AMCGame_PC::Server_ClickedToSlot_Implementation(AMCTableSlot* NewSlot)
 			{
 				// As in the Blueprint: while castling is possible, a king click on any other empty slot does nothing.
 				const int32 Index = KingTo.Find(NewSlot->SlotName);
-				AMCChessTable* Table = UMCCommonFunctions::GetChessTableCommon(this);
+				AMCChessTable* Table = UMCCommonFunctions::FindChessTable(this);
 				AMCChessObjectBase* Rook = nullptr;
 				bool bRookValid = false;
 				if (Table && RookFrom.IsValidIndex(Index))
@@ -280,7 +280,7 @@ void AMCGame_PC::DetectSwitching(AMCChessObjectBase* NewSelectedObject)
 
 bool AMCGame_PC::IsSlotEmpty(FName SlotName) const
 {
-	AMCChessTable* Table = UMCCommonFunctions::GetChessTableCommon(this);
+	AMCChessTable* Table = UMCCommonFunctions::FindChessTable(this);
 	if (!Table)
 	{
 		MC_ACCESSED_NONE("GetChessTableCommon");

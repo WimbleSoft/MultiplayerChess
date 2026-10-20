@@ -1,9 +1,14 @@
 #include "Game/Interactables/MCKing.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Game/Interactables/MCTableSlot.h"
 #include "Net/UnrealNetwork.h"
 
 AMCKing::AMCKing()
 {
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Mesh(TEXT("/Game/Geometry/Meshes/ChessObjects/SM_King.SM_King"));
+	SM_ChessObject->SetStaticMesh(Mesh.Object);
 	ObjectType = E_ObjectType::King;
 }
 

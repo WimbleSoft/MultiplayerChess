@@ -4,13 +4,24 @@
 #include "GameFramework/Pawn.h"
 #include "MCLobbyPawn.generated.h"
 
-// Port of BP_LobbyPawn. The components (ChildActor showing BP_King, Camera) stay in the Blueprint.
+class UCameraComponent;
+class UChildActorComponent;
+
+// Port of BP_LobbyPawn (not used by any game mode or map).
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCLobbyPawn : public APawn
 {
 	GENERATED_BODY()
 
 public:
+	AMCLobbyPawn();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UChildActorComponent> ChildActor;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UCameraComponent> Camera;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsAway = false;
 

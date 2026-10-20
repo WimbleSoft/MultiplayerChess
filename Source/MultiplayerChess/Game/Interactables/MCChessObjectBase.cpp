@@ -7,6 +7,8 @@
 #include "Game/MCSlotInterface.h"
 #include "MultiplayerChess.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Components/TextRenderComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -17,6 +19,23 @@ AMCChessObjectBase::AMCChessObjectBase()
 {
 	bReplicates = true;
 	bAlwaysRelevant = true;
+
+	SM_ChessObject = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SM_ChessObject"));
+	RootComponent = SM_ChessObject;
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> PawnMesh(TEXT("/Game/Geometry/Meshes/ChessObjects/SM_Pawn.SM_Pawn"));
+	SM_ChessObject->SetStaticMesh(PawnMesh.Object);
+
+	TextRender = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TextRender"));
+	TextRender->SetupAttachment(SM_ChessObject);
+	TextRender->SetRelativeLocation(FVector(0.f, 0.f, 12.f));
+	TextRender->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
+	TextRender->SetRelativeScale3D(FVector(0.1f));
+	TextRender->SetText(INVTEXT("00"));
+	TextRender->SetWorldSize(64.f);
+	TextRender->SetHorizontalAlignment(EHTA_Center);
+	TextRender->SetVerticalAlignment(EVRTA_TextCenter);
+	TextRender->SetTextRenderColor(FColor(255, 0, 255, 255));
+
 	HomeMaterial = TSoftObjectPtr<UMaterialInterface>(FSoftObjectPath(TEXT("/Game/Geometry/Materials/MI_HomeChessObject.MI_HomeChessObject")));
 	AwayMaterial = TSoftObjectPtr<UMaterialInterface>(FSoftObjectPath(TEXT("/Game/Geometry/Materials/MI_AwayChessObject.MI_AwayChessObject")));
 }
@@ -34,28 +53,10 @@ void AMCChessObjectBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(AMCChessObjectBase, IsChecking);
 }
 
-void AMCChessObjectBase::FindBlueprintComponents()
-{
-	TArray<UActorComponent*> Components;
-	GetComponents(Components);
-	for (UActorComponent* Component : Components)
-	{
-		if (Component->GetFName() == TEXT("SM_ChessObject"))
-		{
-			SM_ChessObjectComponent = Cast<UStaticMeshComponent>(Component);
-		}
-		else if (Component->GetFName() == TEXT("TextRender"))
-		{
-			TextRenderComponent = Cast<UTextRenderComponent>(Component);
-		}
-	}
-}
-
 void AMCChessObjectBase::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	FindBlueprintComponents();
 	ApplyAwayMaterial();
 }
 
@@ -63,12 +64,11 @@ void AMCChessObjectBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	FindBlueprintComponents();
-	if (SM_ChessObjectComponent)
+	if (SM_ChessObject)
 	{
-		SM_ChessObjectComponent->OnBeginCursorOver.AddUniqueDynamic(this, &AMCChessObjectBase::OnMeshBeginCursorOver);
-		SM_ChessObjectComponent->OnEndCursorOver.AddUniqueDynamic(this, &AMCChessObjectBase::OnMeshEndCursorOver);
-		SM_ChessObjectComponent->OnClicked.AddUniqueDynamic(this, &AMCChessObjectBase::OnMeshClicked);
+		SM_ChessObject->OnBeginCursorOver.AddUniqueDynamic(this, &AMCChessObjectBase::OnMeshBeginCursorOver);
+		SM_ChessObject->OnEndCursorOver.AddUniqueDynamic(this, &AMCChessObjectBase::OnMeshEndCursorOver);
+		SM_ChessObject->OnClicked.AddUniqueDynamic(this, &AMCChessObjectBase::OnMeshClicked);
 	}
 
 	Server_RotText();
@@ -138,18 +138,14 @@ void AMCChessObjectBase::ApplyAwayMaterial()
 {
 	UMaterialInterface* Parent = IsAway ? AwayMaterial.LoadSynchronous() : HomeMaterial.LoadSynchronous();
 	DMI_Mesh = UMaterialInstanceDynamic::Create(Parent, this);
-	if (SM_ChessObjectComponent)
+	if (SM_ChessObject)
 	{
-		SM_ChessObjectComponent->SetMaterial(0, DMI_Mesh);
+		SM_ChessObject->SetMaterial(0, DMI_Mesh);
 	}
 }
 
 void AMCChessObjectBase::OnRep_IsAway()
 {
-	if (!SM_ChessObjectComponent)
-	{
-		FindBlueprintComponents();
-	}
 	ApplyAwayMaterial();
 }
 
@@ -168,13 +164,9 @@ void AMCChessObjectBase::OnRep_IsSelected()
 
 void AMCChessObjectBase::OnRep_SlotName()
 {
-	if (!TextRenderComponent)
+	if (TextRender)
 	{
-		FindBlueprintComponents();
-	}
-	if (TextRenderComponent)
-	{
-		TextRenderComponent->SetText(FText::FromName(SlotName));
+		TextRender->SetText(FText::FromName(SlotName));
 	}
 }
 
@@ -823,9 +815,9 @@ void AMCChessObjectBase::Client_RotText_Implementation(int32 A)
 		const bool bPick = (A == 1) && IsAway;
 		const FRotator WhenAway = bPick ? FRotator(90.f, 180.f, 0.f) : FRotator(90.f, 0.f, 0.f);
 		const FRotator WhenHome = bPick ? FRotator(90.f, 0.f, 0.f) : FRotator(90.f, 180.f, 0.f);
-		if (TextRenderComponent)
+		if (TextRender)
 		{
-			TextRenderComponent->SetRelativeRotation(IsAway ? WhenAway : WhenHome);
+			TextRender->SetRelativeRotation(IsAway ? WhenAway : WhenHome);
 		}
 	}
 }

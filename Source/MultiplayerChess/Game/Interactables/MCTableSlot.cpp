@@ -6,6 +6,8 @@
 #include "Game/MCGame_PC.h"
 #include "MultiplayerChess.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Components/TextRenderComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -16,6 +18,24 @@ AMCTableSlot::AMCTableSlot()
 {
 	bReplicates = true;
 	bAlwaysRelevant = true;
+
+	SM_Slot = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SM_Slot"));
+	RootComponent = SM_Slot;
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> SlotMesh(TEXT("/Game/Geometry/Meshes/Table/SM_Slot.SM_Slot"));
+	SM_Slot->SetStaticMesh(SlotMesh.Object);
+
+	TextRender = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TextRender"));
+	TextRender->SetupAttachment(SM_Slot);
+	TextRender->SetRelativeLocation(FVector(0.f, 0.f, 0.2f));
+	TextRender->SetRelativeRotation(FRotator(90.f, 0.f, 0.f));
+	TextRender->SetRelativeScale3D(FVector(0.1f));
+	TextRender->SetText(INVTEXT("00"));
+	TextRender->SetWorldSize(26.f);
+	TextRender->SetHorizontalAlignment(EHTA_Center);
+	TextRender->SetVerticalAlignment(EVRTA_TextCenter);
+	TextRender->SetTextRenderColor(FColor(255, 0, 0, 255));
+	TextRender->SetCastShadow(false);
+	TextRender->SetGenerateOverlapEvents(false);
 	HomeMaterial = TSoftObjectPtr<UMaterialInterface>(FSoftObjectPath(TEXT("/Game/Materials/M_HomeSlot.M_HomeSlot")));
 	AwayMaterial = TSoftObjectPtr<UMaterialInterface>(FSoftObjectPath(TEXT("/Game/Materials/M_AwaySlot.M_AwaySlot")));
 }
@@ -31,30 +51,13 @@ void AMCTableSlot::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AMCTableSlot, AttachedObject);
 }
 
-void AMCTableSlot::FindBlueprintComponents()
-{
-	TArray<UActorComponent*> Components;
-	GetComponents(Components);
-	for (UActorComponent* Component : Components)
-	{
-		if (Component->GetFName() == TEXT("SM_Slot"))
-		{
-			SM_SlotComponent = Cast<UStaticMeshComponent>(Component);
-		}
-		else if (Component->GetFName() == TEXT("TextRender"))
-		{
-			TextRenderComponent = Cast<UTextRenderComponent>(Component);
-		}
-	}
-}
-
 void AMCTableSlot::ApplyAwayMaterial()
 {
 	UMaterialInterface* Parent = IsAway ? AwayMaterial.LoadSynchronous() : HomeMaterial.LoadSynchronous();
 	DMI_Slot = UMaterialInstanceDynamic::Create(Parent, this);
-	if (SM_SlotComponent)
+	if (SM_Slot)
 	{
-		SM_SlotComponent->SetMaterial(0, DMI_Slot);
+		SM_Slot->SetMaterial(0, DMI_Slot);
 	}
 }
 
@@ -62,7 +65,6 @@ void AMCTableSlot::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	FindBlueprintComponents();
 	ApplyAwayMaterial();
 }
 
@@ -70,12 +72,11 @@ void AMCTableSlot::BeginPlay()
 {
 	Super::BeginPlay();
 
-	FindBlueprintComponents();
-	if (SM_SlotComponent)
+	if (SM_Slot)
 	{
-		SM_SlotComponent->OnBeginCursorOver.AddUniqueDynamic(this, &AMCTableSlot::OnSlotBeginCursorOver);
-		SM_SlotComponent->OnEndCursorOver.AddUniqueDynamic(this, &AMCTableSlot::OnSlotEndCursorOver);
-		SM_SlotComponent->OnClicked.AddUniqueDynamic(this, &AMCTableSlot::OnSlotClicked);
+		SM_Slot->OnBeginCursorOver.AddUniqueDynamic(this, &AMCTableSlot::OnSlotBeginCursorOver);
+		SM_Slot->OnEndCursorOver.AddUniqueDynamic(this, &AMCTableSlot::OnSlotEndCursorOver);
+		SM_Slot->OnClicked.AddUniqueDynamic(this, &AMCTableSlot::OnSlotClicked);
 	}
 
 	AMCGame_PC* GamePC = Cast<AMCGame_PC>(UGameplayStatics::GetPlayerController(this, 0));
@@ -84,9 +85,9 @@ void AMCTableSlot::BeginPlay()
 		MC_ACCESSED_NONE("AsBP Game PC");
 	}
 	const bool bIsAwayPlayer = GamePC && GamePC->GlobalPlayerIndex == 1;
-	if (TextRenderComponent)
+	if (TextRender)
 	{
-		TextRenderComponent->SetRelativeRotation(bIsAwayPlayer ? FRotator(90.f, 0.f, 0.f) : FRotator(90.f, 180.f, 0.f));
+		TextRender->SetRelativeRotation(bIsAwayPlayer ? FRotator(90.f, 0.f, 0.f) : FRotator(90.f, 180.f, 0.f));
 	}
 }
 
@@ -110,10 +111,6 @@ void AMCTableSlot::SetIsClickedNotify(bool bNewValue)
 
 void AMCTableSlot::OnRep_IsAway()
 {
-	if (!SM_SlotComponent)
-	{
-		FindBlueprintComponents();
-	}
 	ApplyAwayMaterial();
 }
 
@@ -151,13 +148,9 @@ AMCChessTable* AMCTableSlot::GetTable()
 void AMCTableSlot::SetSlotName(FName InSlotName)
 {
 	SlotName = InSlotName;
-	if (!TextRenderComponent)
+	if (TextRender)
 	{
-		FindBlueprintComponents();
-	}
-	if (TextRenderComponent)
-	{
-		TextRenderComponent->SetText(FText::FromName(SlotName));
+		TextRender->SetText(FText::FromName(SlotName));
 	}
 }
 

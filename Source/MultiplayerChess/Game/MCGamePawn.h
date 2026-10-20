@@ -4,7 +4,9 @@
 #include "GameFramework/Pawn.h"
 #include "MCGamePawn.generated.h"
 
-// Port of BP_GamePawn. The Camera component stays in the Blueprint.
+class UCameraComponent;
+
+// Port of BP_GamePawn.
 UCLASS(Blueprintable)
 class MULTIPLAYERCHESS_API AMCGamePawn : public APawn
 {
@@ -12,6 +14,12 @@ class MULTIPLAYERCHESS_API AMCGamePawn : public APawn
 
 public:
 	AMCGamePawn();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<USceneComponent> DefaultSceneRoot;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UCameraComponent> Camera;
 
 	virtual void BeginPlay() override;
 };

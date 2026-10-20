@@ -28,7 +28,7 @@ public:
 
 	// Piece classes used by ReplacePawnWithNewObject (the Blueprint picked BP_Bishop_C, BP_King_C, ... with a Select node).
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TMap<E_ObjectType, TSoftClassPtr<AMCChessObjectBase>> ObjectClasses;
+	TMap<E_ObjectType, TSubclassOf<AMCChessObjectBase>> ObjectClasses;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 
