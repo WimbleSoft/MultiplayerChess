@@ -148,6 +148,11 @@ AMCChessTable* AMCTableSlot::GetTable()
 void AMCTableSlot::SetSlotName(FName InSlotName)
 {
 	SlotName = InSlotName;
+	OnRep_SlotName();
+}
+
+void AMCTableSlot::OnRep_SlotName()
+{
 	if (TextRender)
 	{
 		TextRender->SetText(FText::FromName(SlotName));

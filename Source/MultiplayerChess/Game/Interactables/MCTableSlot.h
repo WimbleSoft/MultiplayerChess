@@ -44,7 +44,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsHover = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
+	// Replicated with a notify so clients show the square's name too (the Blueprint only set it on the server).
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_SlotName)
 	FName SlotName = TEXT("00");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
@@ -91,6 +92,9 @@ public:
 
 	UFUNCTION()
 	void OnRep_IsClicked();
+
+	UFUNCTION()
+	void OnRep_SlotName();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	void GetIsEmpty(bool& IsEmpty, bool& IsFull) const;
