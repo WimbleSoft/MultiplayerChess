@@ -232,6 +232,30 @@ void UMCGameInstance::ServerTravel(const FString& LevelName, APlayerController* 
 	UKismetSystemLibrary::ExecuteConsoleCommand(this, TEXT("servertravel ") + LevelName + MatchSettings.ToURLOptions(), SpecificPlayer);
 }
 
+void UMCGameInstance::SetShowMovesToOpponent(bool bShow)
+{
+	MatchSettings.ShowMovesToOpponent = bShow;
+
+	// Remember it as the host's preference. The host controller's save object is updated too, so a later
+	// SaveGame() from the other settings does not write the old value back.
+	AMCBasePC* HostPC = Cast<AMCBasePC>(GetFirstLocalPlayerController());
+	UMCSave* Save = HostPC ? HostPC->R_SaveGame.Get() : nullptr;
+	if (!Save)
+	{
+		Save = Cast<UMCSave>(UGameplayStatics::LoadGameFromSlot(TEXT("Save"), 0));
+	}
+	if (!Save)
+	{
+		Save = Cast<UMCSave>(UGameplayStatics::CreateSaveGameObject(UMCSave::StaticClass()));
+	}
+	if (HostPC && !HostPC->R_SaveGame)
+	{
+		HostPC->R_SaveGame = Save;
+	}
+	Save->ShowMovesToOpponent = bShow;
+	UGameplayStatics::SaveGameToSlot(Save, TEXT("Save"), 0);
+}
+
 void UMCGameInstance::LoadMatchSettingsFrom(UMCSave* Save)
 {
 	if (Save)

@@ -38,6 +38,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void LoadMatchSettingsFrom(UMCSave* Save);
 
+	// For the match settings widget. Set also stores the choice in the host's save game as the new preference.
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool GetShowMovesToOpponent() const { return MatchSettings.ShowMovesToOpponent; }
+
+	UFUNCTION(BlueprintCallable)
+	void SetShowMovesToOpponent(bool bShow);
+
 	// UI_Kicked; the widget stays a Blueprint.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSoftClassPtr<UUserWidget> KickedWidgetClass;
