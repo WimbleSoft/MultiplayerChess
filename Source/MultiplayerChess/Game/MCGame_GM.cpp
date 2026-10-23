@@ -1,5 +1,6 @@
 #include "Game/MCGame_GM.h"
 #include "Common/MCCommonFunctions.h"
+#include "Common/MCSave.h"
 #include "Common/S_ObjectMap.h"
 #include "Game/Interactables/MCBishop.h"
 #include "Game/Interactables/MCChessObjectBase.h"
@@ -54,6 +55,49 @@ void AMCGame_GM::OnConstruction(const FTransform& Transform)
 AMCChessTable* AMCGame_GM::GetTable() const
 {
 	return R_Table ? R_Table.Get() : UMCCommonFunctions::FindChessTable(this);
+}
+
+void AMCGame_GM::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	if (UGameplayStatics::HasOption(Options, TEXT("ShowOpponentMoves")))
+	{
+		bShowMovesToOpponent = UGameplayStatics::GetIntOption(Options, TEXT("ShowOpponentMoves"), 0) != 0;
+	}
+	else if (UMCSave* Save = Cast<UMCSave>(UGameplayStatics::LoadGameFromSlot(TEXT("Save"), 0)))
+	{
+		bShowMovesToOpponent = Save->ShowMovesToOpponent;
+	}
+}
+
+void AMCGame_GM::BroadcastSelection(AMCGame_PC* SelectingPlayer, AMCChessObjectBase* Piece)
+{
+	if (!IsValid(Piece))
+	{
+		return;
+	}
+	const bool bSelected = Piece->IsSelected;
+	TArray<FName> MoveSlots;
+	AMCChessTable* Table = GetTable();
+	int32 Col = 0, Row = 0;
+	if (bSelected && Table && FMCChessRules::ParseSquare(Piece->SlotName, Col, Row))
+	{
+		TArray<FMCMove> Moves;
+		Table->BuildRules().GenerateLegalMoves(Col, Row, Moves);
+		for (const FMCMove& Move : Moves)
+		{
+			MoveSlots.Add(FMCChessRules::MakeSquareName(Move.ToCol, Move.ToRow));
+		}
+	}
+	for (AMCGame_PC* Player : PlayerControllers)
+	{
+		// Clearing goes to everybody, so nobody keeps a stale highlight.
+		if (Player && (Player == SelectingPlayer || !bSelected || bShowMovesToOpponent))
+		{
+			Player->Client_ShowSelection(Piece, bSelected, MoveSlots);
+		}
+	}
 }
 
 bool AMCGame_GM::ReadyToStartMatch()
@@ -289,6 +333,7 @@ void AMCGame_GM::MoveObjectToEmptySlot(AMCTableSlot* NewSlot, AMCChessObjectBase
 		SelectedObject->SetSocketName(NAME_None);
 	}
 	SelectedObject->Server_IsSelected(false);
+	BroadcastSelection(nullptr, SelectedObject);
 	SelectedObject->S_SetIsMoved(true);
 }
 

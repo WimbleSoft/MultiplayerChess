@@ -78,3 +78,23 @@ void AMCBasePC::LoadGame()
 		}
 	}
 }
+
+bool AMCBasePC::GetShowMovesToOpponent() const
+{
+	return R_SaveGame ? R_SaveGame->ShowMovesToOpponent : false;
+}
+
+void AMCBasePC::SetShowMovesToOpponent(bool bShow)
+{
+	if (!R_SaveGame)
+	{
+		LoadGame();
+	}
+	if (!R_SaveGame)
+	{
+		R_SaveGame = Cast<UMCSave>(UGameplayStatics::CreateSaveGameObject(UMCSave::StaticClass()));
+	}
+	R_SaveGame->ShowMovesToOpponent = bShow;
+	// Saved directly: SaveGame() replaces R_SaveGame with a fresh object when no save file exists yet.
+	UGameplayStatics::SaveGameToSlot(R_SaveGame, TEXT("Save"), 0);
+}

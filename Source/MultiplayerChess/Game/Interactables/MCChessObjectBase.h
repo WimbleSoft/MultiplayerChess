@@ -88,6 +88,10 @@ public:
 	UFUNCTION()
 	void OnRep_IsSelected();
 
+	// Local only: shows or hides this piece's selection glow and lights up the given move slots on this machine.
+	UFUNCTION(BlueprintCallable)
+	void ShowSelectionLocally(bool bSelected, const TArray<FName>& MoveSlots);
+
 	UFUNCTION()
 	void OnRep_SlotName();
 
@@ -174,6 +178,9 @@ public:
 	virtual void Hover_Implementation(bool IsOnHover) override {}
 
 protected:
+	// Whether this machine currently shows the piece as selected (see ShowSelectionLocally).
+	bool bShowSelectionLocally = false;
+
 	UFUNCTION()
 	void OnMeshBeginCursorOver(UPrimitiveComponent* TouchedComponent);
 	UFUNCTION()

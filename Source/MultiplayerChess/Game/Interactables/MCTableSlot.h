@@ -35,7 +35,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_IsAway)
 	bool IsAway = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_IsActive)
+	// Highlighted as a possible move on this machine. Not replicated: each player only sees the highlights the
+	// server sends to them.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsActive = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_IsClicked)

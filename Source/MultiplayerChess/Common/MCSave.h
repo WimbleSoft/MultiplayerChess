@@ -35,4 +35,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, SaveGame)
 	FS_PlayerInfo PlayerInfo;
+
+	// Match setting chosen by the host: whether the opponent also sees the selected piece and its possible moves.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, SaveGame)
+	bool ShowMovesToOpponent = false;
 };

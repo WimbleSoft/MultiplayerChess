@@ -43,4 +43,11 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void LoadGame();
+
+	// For the match settings widget: read and change the "show moves to opponent" setting in the save game.
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool GetShowMovesToOpponent() const;
+
+	UFUNCTION(BlueprintCallable)
+	void SetShowMovesToOpponent(bool bShow);
 };

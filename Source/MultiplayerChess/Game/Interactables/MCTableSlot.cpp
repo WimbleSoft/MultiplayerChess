@@ -45,7 +45,6 @@ void AMCTableSlot::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMCTableSlot, IsAway);
-	DOREPLIFETIME(AMCTableSlot, IsActive);
 	DOREPLIFETIME(AMCTableSlot, IsClicked);
 	DOREPLIFETIME(AMCTableSlot, SlotName);
 	DOREPLIFETIME(AMCTableSlot, AttachedObject);
@@ -230,7 +229,8 @@ void AMCTableSlot::Multicast_SetIsActive_Implementation(bool InIsActive)
 
 void AMCTableSlot::ShowPossibles_Implementation(FName InSlotName)
 {
-	Server_SetIsActive(InSlotName == SlotName);
+	// Possible-move highlights are local to each machine now (see AMCChessObjectBase::ShowSelectionLocally).
+	SetIsActiveNotify(InSlotName == SlotName);
 }
 
 void AMCTableSlot::Server_SlotClicked_Implementation(bool InIsClicked)

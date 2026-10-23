@@ -37,6 +37,17 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	FName PendingPromotionSlot;
 
+	// Whether the opponent also sees the selected piece and its possible moves. Read from the host's save game
+	// (match settings) when the game starts; the URL option ?ShowOpponentMoves=0/1 overrides it.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bShowMovesToOpponent = false;
+
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+
+	// Sends the piece's selection state and legal moves to its owner, and to the opponent when allowed.
+	UFUNCTION(BlueprintCallable)
+	void BroadcastSelection(AMCGame_PC* SelectingPlayer, AMCChessObjectBase* Piece);
+
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 	// Never called by the engine for a GameModeBase; kept as a plain function like in the Blueprint.

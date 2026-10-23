@@ -50,6 +50,10 @@ void AMCGame_PC::Server_ObjectSelected_Implementation(AMCChessObjectBase* NewSel
 		if (SelectedChessObject == NewSelectedObject)
 		{
 			SelectedChessObject->Server_IsSelected(!SelectedChessObject->IsSelected);
+			if (GameMode)
+			{
+				GameMode->BroadcastSelection(this, SelectedChessObject);
+			}
 			SelectedChessObject = nullptr;
 		}
 		else
@@ -66,7 +70,10 @@ void AMCGame_PC::Server_ObjectSelected_Implementation(AMCChessObjectBase* NewSel
 			return;
 		}
 		SelectedChessObject->Server_IsSelected(!SelectedChessObject->IsSelected);
-		NewSelectedObject->CalcPossibility();
+		if (GameMode)
+		{
+			GameMode->BroadcastSelection(this, SelectedChessObject);
+		}
 	}
 }
 
@@ -75,6 +82,10 @@ void AMCGame_PC::Server_SwitchSelection_Implementation(AMCChessObjectBase* Selec
 	if (SelectedObject)
 	{
 		SelectedObject->Server_IsSelected(!SelectedObject->IsSelected);
+		if (GameMode)
+		{
+			GameMode->BroadcastSelection(this, SelectedObject);
+		}
 	}
 	else
 	{
@@ -87,9 +98,9 @@ void AMCGame_PC::Server_SwitchSelection_Implementation(AMCChessObjectBase* Selec
 		return;
 	}
 	SelectedChessObject->Server_IsSelected(!SelectedChessObject->IsSelected);
-	if (SelectedChessObject->IsSelected)
+	if (GameMode)
 	{
-		SelectedChessObject->CalcPossibility();
+		GameMode->BroadcastSelection(this, SelectedChessObject);
 	}
 }
 
@@ -174,6 +185,14 @@ void AMCGame_PC::TryPawnReplacement_Implementation(FName Slot, E_ObjectType NewO
 	GameMode->CompletePromotion(this, Slot, NewObjectType);
 }
 
+void AMCGame_PC::Client_ShowSelection_Implementation(AMCChessObjectBase* Piece, bool bSelected, const TArray<FName>& MoveSlots)
+{
+	if (Piece)
+	{
+		Piece->ShowSelectionLocally(bSelected, MoveSlots);
+	}
+}
+
 void AMCGame_PC::Client_ShowMessage_Implementation(const FString& Message)
 {
 	UKismetSystemLibrary::PrintString(this, Message, true, true, FLinearColor(1.f, 0.41f, 0.f, 1.f), 3.f);
@@ -233,3 +252,4 @@ void AMCGame_PC::GetSlotByName(FName SlotName, AMCTableSlot*& Slot, bool& bIsVal
 		MC_ACCESSED_NONE("GetChessTable");
 	}
 }
+

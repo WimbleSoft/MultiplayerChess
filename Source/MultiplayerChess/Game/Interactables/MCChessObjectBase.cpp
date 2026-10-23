@@ -107,7 +107,12 @@ void AMCChessObjectBase::ClickGlow(bool IsGlowing)
 
 AMCChessTable* AMCChessObjectBase::GetChessTable() const
 {
-	return Cast<AMCChessTable>(GetParentActor());
+	if (AMCChessTable* Table = Cast<AMCChessTable>(GetParentActor()))
+	{
+		return Table;
+	}
+	// On clients the child actor's parent link is not always resolved; fall back to the board in the level.
+	return UMCCommonFunctions::FindChessTable(this);
 }
 
 void AMCChessObjectBase::HoverGlow(bool Glow)
@@ -124,7 +129,7 @@ void AMCChessObjectBase::HoverGlow(bool Glow)
 	}
 	else
 	{
-		ClickGlow(IsSelected);
+		ClickGlow(bShowSelectionLocally);
 	}
 }
 
@@ -145,14 +150,23 @@ void AMCChessObjectBase::OnRep_IsAway()
 
 void AMCChessObjectBase::OnRep_IsSelected()
 {
-	ClickGlow(IsSelected);
-	if (IsSelected)
+	// The selection glow and the possible-move highlights are shown per player through
+	// AMCGame_PC::Client_ShowSelection, so the opponent only sees them when the server allows it.
+}
+
+void AMCChessObjectBase::ShowSelectionLocally(bool bSelected, const TArray<FName>& MoveSlots)
+{
+	bShowSelectionLocally = bSelected;
+	ClickGlow(bSelected);
+	if (AMCChessTable* Table = GetChessTable())
 	{
-		Server_CalcPossibility();
-	}
-	else
-	{
-		Server_DeCalcPossibility();
+		for (AMCTableSlot* Slot : Table->AllSlots)
+		{
+			if (Slot)
+			{
+				Slot->SetIsActiveNotify(bSelected && MoveSlots.Contains(Slot->SlotName));
+			}
+		}
 	}
 }
 

@@ -71,6 +71,10 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void TryPawnReplacement(FName Slot, E_ObjectType NewObjectType);
 
+	// Shows (or hides) a piece's selection glow and its possible-move slots on this player's screen only.
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void Client_ShowSelection(AMCChessObjectBase* Piece, bool bSelected, const TArray<FName>& MoveSlots);
+
 	// Shows a message on this player's own screen.
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void Client_ShowMessage(const FString& Message);
