@@ -1,6 +1,6 @@
 #include "Game/MCGame_GM.h"
 #include "Common/MCCommonFunctions.h"
-#include "Common/MCSave.h"
+#include "Common/MCGameInstance.h"
 #include "Common/S_ObjectMap.h"
 #include "Game/Interactables/MCBishop.h"
 #include "Game/Interactables/MCChessObjectBase.h"
@@ -61,13 +61,25 @@ void AMCGame_GM::InitGame(const FString& MapName, const FString& Options, FStrin
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
+	// Match rules come with the travel URL; without one (e.g. PIE straight into Game) use the game instance's
+	// match settings, which start from the host's saved preferences.
 	if (UGameplayStatics::HasOption(Options, TEXT("ShowOpponentMoves")))
 	{
 		bShowMovesToOpponent = UGameplayStatics::GetIntOption(Options, TEXT("ShowOpponentMoves"), 0) != 0;
 	}
-	else if (UMCSave* Save = Cast<UMCSave>(UGameplayStatics::LoadGameFromSlot(TEXT("Save"), 0)))
+	else if (const UMCGameInstance* GI = Cast<UMCGameInstance>(GetGameInstance()))
 	{
-		bShowMovesToOpponent = Save->ShowMovesToOpponent;
+		bShowMovesToOpponent = GI->MatchSettings.ShowMovesToOpponent;
+	}
+}
+
+void AMCGame_GM::InitGameState()
+{
+	Super::InitGameState();
+
+	if (AMCGame_GS* GS = GetGS())
+	{
+		GS->bShowMovesToOpponent = bShowMovesToOpponent;
 	}
 }
 

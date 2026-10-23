@@ -37,12 +37,13 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	FName PendingPromotionSlot;
 
-	// Whether the opponent also sees the selected piece and its possible moves. Read from the host's save game
-	// (match settings) when the game starts; the URL option ?ShowOpponentMoves=0/1 overrides it.
+	// Whether the opponent also sees the selected piece and its possible moves. Comes from the travel URL option
+	// ?ShowOpponentMoves=0/1 (or the game instance's match settings) and is published on the game state.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bShowMovesToOpponent = false;
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual void InitGameState() override;
 
 	// Sends the piece's selection state and legal moves to its owner, and to the opponent when allowed.
 	UFUNCTION(BlueprintCallable)

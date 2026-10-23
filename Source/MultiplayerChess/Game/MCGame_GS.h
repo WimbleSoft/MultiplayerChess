@@ -21,6 +21,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	bool bGameOver = false;
 
+	// Match setting from the game mode, so clients can show it (e.g. "moves are hidden in this match").
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bShowMovesToOpponent = false;
+
 	// GlobalPlayerIndex of the winner, -1 for a draw.
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	int32 WinnerIndex = -1;

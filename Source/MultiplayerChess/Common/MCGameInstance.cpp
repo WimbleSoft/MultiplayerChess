@@ -55,6 +55,9 @@ void UMCGameInstance::Init()
 		Settings->SetScreenResolution(Settings->GetDesktopResolution());
 	}
 
+	// Start from the host's last choices.
+	LoadMatchSettingsFrom(Cast<UMCSave>(UGameplayStatics::LoadGameFromSlot(TEXT("Save"), 0)));
+
 	// Event HandleNetworkError / HandleTravelError
 	if (GEngine)
 	{
@@ -81,6 +84,7 @@ void UMCGameInstance::CreateSession(AMCBasePC* PlayerController)
 		return;
 	}
 	UMCSave* Save = PlayerController->R_SaveGame;
+	LoadMatchSettingsFrom(Save);
 	UCreateSessionCallbackProxy* Proxy = MakeSessionProxy<UCreateSessionCallbackProxy>(TEXT("CreateSession"), [&](FMCReflectionCall& Call)
 	{
 		Call.Set<UObject*>(TEXT("WorldContextObject"), this);
@@ -219,8 +223,21 @@ void UMCGameInstance::OnJoinSessionFailure()
 
 void UMCGameInstance::ServerTravel(const FString& LevelName, APlayerController* SpecificPlayer)
 {
+	// The match settings widget edits the host's save game, so pick up its latest values before travelling.
+	if (AMCBasePC* HostPC = Cast<AMCBasePC>(GetFirstLocalPlayerController()))
+	{
+		LoadMatchSettingsFrom(HostPC->R_SaveGame);
+	}
 	// The Blueprint also had an "if (false) -> OpenLevel(Lobby, listen)" branch, which can never run.
-	UKismetSystemLibrary::ExecuteConsoleCommand(this, TEXT("servertravel ") + LevelName, SpecificPlayer);
+	UKismetSystemLibrary::ExecuteConsoleCommand(this, TEXT("servertravel ") + LevelName + MatchSettings.ToURLOptions(), SpecificPlayer);
+}
+
+void UMCGameInstance::LoadMatchSettingsFrom(UMCSave* Save)
+{
+	if (Save)
+	{
+		MatchSettings.ShowMovesToOpponent = Save->ShowMovesToOpponent;
+	}
 }
 
 void UMCGameInstance::ChangeSessionDetails(APlayerController* PlayerController)

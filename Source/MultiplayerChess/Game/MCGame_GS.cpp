@@ -13,6 +13,7 @@ void AMCGame_GS::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AMCGame_GS, PlayerTurnIndex);
 	DOREPLIFETIME(AMCGame_GS, bGameOver);
 	DOREPLIFETIME(AMCGame_GS, WinnerIndex);
+	DOREPLIFETIME(AMCGame_GS, bShowMovesToOpponent);
 }
 
 void AMCGame_GS::ProcessObjectBeatingPoints(AMCGame_PC* BeatingPlayer, int32 PointsToAdd, AMCGame_PC* BeatenPlayer)

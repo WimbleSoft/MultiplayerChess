@@ -4,9 +4,11 @@
 #include "Engine/GameInstance.h"
 #include "Engine/EngineBaseTypes.h"
 #include "FindSessionsCallbackProxy.h"
+#include "Common/S_MatchSettings.h"
 #include "MCGameInstance.generated.h"
 
 class AMCBasePC;
+class UMCSave;
 class UUserWidget;
 
 // Port of BP_GameInstance.
@@ -26,6 +28,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FBlueprintSessionResult JoinedSession;
+
+	// Rules of the match the host is setting up. Filled from the host's save game and passed to the Game map as
+	// URL options by ServerTravel.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FS_MatchSettings MatchSettings;
+
+	// Copies the match settings from a save game (the host's preferences).
+	UFUNCTION(BlueprintCallable)
+	void LoadMatchSettingsFrom(UMCSave* Save);
 
 	// UI_Kicked; the widget stays a Blueprint.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
